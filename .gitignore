@@ -1,0 +1,7 @@
+# Config locale Kiro
+.kiro/
+
+# Logs / divers
+*.log
+.DS_Store
+node_modules/
