@@ -92,8 +92,23 @@ function SeatContent() {
 
       {/* Plan du bus */}
       <div className="card mb-6 overflow-x-auto">
-        <div className="text-center text-xs text-gray-400 mb-4">
+        <div className="text-center text-xs text-gray-400 mb-2">
           🚌 Avant du bus
+        </div>
+
+        {/* Position du chauffeur */}
+        <div className="flex justify-center items-center gap-1 mb-4">
+          <div className="w-8" /> {/* Espace numéro rangée */}
+          {/* Côté gauche : vide (pas de chauffeur ici) */}
+          <div className="w-11" />
+          <div className="w-11" />
+          {/* Allée */}
+          <div className="w-6" />
+          {/* Côté droit : chauffeur */}
+          <div className="w-[140px] h-10 bg-night rounded-lg flex items-center justify-center gap-2">
+            <span className="text-lg">🚗</span>
+            <span className="text-white text-xs font-bold">Chauffeur</span>
+          </div>
         </div>
 
         {/* En-tête colonnes */}
