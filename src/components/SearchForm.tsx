@@ -22,15 +22,45 @@ const CITIES = [
   { id: "sibiti", name: "Sibiti", region: "Lékoumou" },
 ];
 
+// Terminus par ville (gares routières)
+const TERMINALS: Record<string, { id: string; name: string }[]> = {
+  brazzaville: [
+    { id: "chateau-deau", name: "Château d'eau" },
+    { id: "mpila", name: "Mpila" },
+    { id: "mafouta", name: "Mafouta" },
+  ],
+  pointenoire: [
+    { id: "centre-ville", name: "Centre-ville" },
+    { id: "nkouikou", name: "Nkouikou" },
+    { id: "ngoyo", name: "Ngoyo" },
+  ],
+};
+
 export function SearchForm() {
   const router = useRouter();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [fromTerminal, setFromTerminal] = useState("");
+  const [toTerminal, setToTerminal] = useState("");
   const [date, setDate] = useState("");
   const [passengers, setPassengers] = useState(1);
 
   // Date minimum = aujourd'hui
   const today = new Date().toISOString().split("T")[0];
+
+  // Vérifier si une ville a des terminus
+  const fromTerminals = TERMINALS[from] || [];
+  const toTerminals = TERMINALS[to] || [];
+
+  function handleFromChange(value: string) {
+    setFrom(value);
+    setFromTerminal(""); // Reset terminal quand on change de ville
+  }
+
+  function handleToChange(value: string) {
+    setTo(value);
+    setToTerminal(""); // Reset terminal quand on change de ville
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +69,23 @@ export function SearchForm() {
       alert("Les villes de départ et d'arrivée doivent être différentes.");
       return;
     }
-    const params = new URLSearchParams({ from, to, date, passengers: String(passengers) });
+    if (fromTerminals.length > 0 && !fromTerminal) {
+      alert("Veuillez choisir un terminus de départ.");
+      return;
+    }
+    if (toTerminals.length > 0 && !toTerminal) {
+      alert("Veuillez choisir un terminus d'arrivée.");
+      return;
+    }
+
+    const params = new URLSearchParams({
+      from,
+      to,
+      date,
+      passengers: String(passengers),
+      ...(fromTerminal && { fromTerminal }),
+      ...(toTerminal && { toTerminal }),
+    });
     router.push(`/recherche?${params.toString()}`);
   }
 
@@ -53,7 +99,7 @@ export function SearchForm() {
           </label>
           <select
             value={from}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={(e) => handleFromChange(e.target.value)}
             className="input-field text-lg"
             required
           >
@@ -73,7 +119,7 @@ export function SearchForm() {
           </label>
           <select
             value={to}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={(e) => handleToChange(e.target.value)}
             className="input-field text-lg"
             required
           >
@@ -119,6 +165,53 @@ export function SearchForm() {
           </select>
         </div>
       </div>
+
+      {/* Terminus (apparaît seulement si la ville a plusieurs gares) */}
+      {(fromTerminals.length > 0 || toTerminals.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+          {fromTerminals.length > 0 && (
+            <div>
+              <label className="block text-sm font-bold text-night mb-2">
+                📌 Terminus de départ à {CITIES.find(c => c.id === from)?.name}
+              </label>
+              <select
+                value={fromTerminal}
+                onChange={(e) => setFromTerminal(e.target.value)}
+                className="input-field text-lg"
+                required
+              >
+                <option value="">Choisir le terminus...</option>
+                {fromTerminals.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {toTerminals.length > 0 && (
+            <div>
+              <label className="block text-sm font-bold text-night mb-2">
+                📌 Terminus d&apos;arrivée à {CITIES.find(c => c.id === to)?.name}
+              </label>
+              <select
+                value={toTerminal}
+                onChange={(e) => setToTerminal(e.target.value)}
+                className="input-field text-lg"
+                required
+              >
+                <option value="">Choisir le terminus...</option>
+                {toTerminals.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 text-center">
         <button type="submit" className="btn-accent text-lg px-10">

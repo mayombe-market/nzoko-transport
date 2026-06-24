@@ -25,6 +25,15 @@ INSERT INTO cities (id, name, region) VALUES
   ('djambala', 'Djambala', 'Plateaux'),
   ('sibiti', 'Sibiti', 'Lékoumou');
 
+-- Terminus (gares routières)
+INSERT INTO terminals (id, city_id, name) VALUES
+  ('chateau-deau', 'brazzaville', 'Château d''eau'),
+  ('mpila', 'brazzaville', 'Mpila'),
+  ('mafouta', 'brazzaville', 'Mafouta'),
+  ('centre-ville', 'pointenoire', 'Centre-ville'),
+  ('nkouikou', 'pointenoire', 'Nkouikou'),
+  ('ngoyo', 'pointenoire', 'Ngoyo');
+
 -- Corridors
 INSERT INTO corridors (id, label) VALUES
   ('rn1', 'RN1 — Brazzaville ↔ Pointe-Noire'),

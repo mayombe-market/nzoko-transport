@@ -12,8 +12,20 @@ function ResultsContent() {
   const to = params.get("to") || "";
   const date = params.get("date") || "";
   const passengers = Number(params.get("passengers") || "1");
+  const fromTerminal = params.get("fromTerminal") || "";
+  const toTerminal = params.get("toTerminal") || "";
 
   const trips = searchTrips(from, to, date);
+
+  // Labels des terminus
+  const TERMINAL_NAMES: Record<string, string> = {
+    "chateau-deau": "Château d'eau",
+    "mpila": "Mpila",
+    "mafouta": "Mafouta",
+    "centre-ville": "Centre-ville",
+    "nkouikou": "Nkouikou",
+    "ngoyo": "Ngoyo",
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
@@ -25,6 +37,11 @@ function ResultsContent() {
         <h1 className="section-title mt-2">
           {cityName(from)} → {cityName(to)}
         </h1>
+        <p className="text-gray-600 mt-1">
+          {fromTerminal && <span className="text-night font-medium">Départ : {TERMINAL_NAMES[fromTerminal] || fromTerminal}</span>}
+          {fromTerminal && toTerminal && " • "}
+          {toTerminal && <span className="text-night font-medium">Arrivée : {TERMINAL_NAMES[toTerminal] || toTerminal}</span>}
+        </p>
         <p className="text-gray-600 mt-1">
           {new Date(date + "T00:00:00").toLocaleDateString("fr-FR", {
             weekday: "long",

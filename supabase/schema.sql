@@ -26,6 +26,16 @@ CREATE TABLE IF NOT EXISTS cities (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Terminus / Gares routières dans une ville
+CREATE TABLE IF NOT EXISTS terminals (
+  id TEXT PRIMARY KEY,                     -- ex: 'chateau-deau'
+  city_id TEXT REFERENCES cities(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,                      -- ex: 'Château d''eau'
+  address TEXT,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Corridors / Axes routiers
 CREATE TABLE IF NOT EXISTS corridors (
   id TEXT PRIMARY KEY,                     -- ex: 'rn1'
