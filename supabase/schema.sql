@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   status TEXT DEFAULT 'pending',           -- 'pending' | 'confirmed' | 'cancelled' | 'completed'
   customer_phone TEXT,
   customer_email TEXT,
+  user_id UUID REFERENCES auth.users(id),  -- Client qui a réservé
+  scan_count INT DEFAULT 0,                -- Nombre de fois scanné (max 3)
+  last_scanned_at TIMESTAMPTZ,             -- Dernier scan
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

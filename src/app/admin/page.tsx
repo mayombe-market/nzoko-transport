@@ -88,6 +88,27 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Bouton Scanner QR */}
+      <div className="mb-8">
+        <Link
+          href="/admin/scanner"
+          className="block card bg-gradient-to-r from-night to-night-light text-white hover:opacity-90 transition-opacity"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-accent-500 rounded-xl flex items-center justify-center">
+                <span className="text-3xl">📷</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">Scanner un billet</h3>
+                <p className="text-sm text-gray-300">Valider le QR code d&apos;un passager avant l&apos;embarquement</p>
+              </div>
+            </div>
+            <span className="text-2xl">→</span>
+          </div>
+        </Link>
+      </div>
+
       {/* Onglets */}
       <div className="flex gap-1 border-b mb-6 overflow-x-auto">
         {[

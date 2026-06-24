@@ -1,10 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { signOut } from "@/lib/auth";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <header className="bg-night text-white shadow-lg sticky top-0 z-50">
@@ -31,12 +45,37 @@ export function Header() {
             <Link href="/mes-reservations" className="hover:text-accent-400 transition-colors">
               Mes réservations
             </Link>
-            <Link
-              href="/admin"
-              className="bg-accent-500 text-night px-4 py-2 rounded-lg font-semibold hover:bg-accent-400 transition-colors"
-            >
-              Espace Agent
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-300">
+                  {user.user_metadata?.full_name || user.email}
+                </span>
+                <button
+                  onClick={() => signOut()}
+                  className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                >
+                  Déconnexion
+                </button>
+                <Link
+                  href="/admin"
+                  className="bg-accent-500 text-night px-4 py-2 rounded-lg font-semibold hover:bg-accent-400 transition-colors"
+                >
+                  Espace Agent
+                </Link>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Link href="/auth/login" className="hover:text-accent-400 transition-colors text-sm">
+                  Connexion
+                </Link>
+                <Link
+                  href="/admin"
+                  className="bg-accent-500 text-night px-4 py-2 rounded-lg font-semibold hover:bg-accent-400 transition-colors"
+                >
+                  Espace Agent
+                </Link>
+              </div>
+            )}
           </nav>
 
           {/* Menu mobile burger */}

@@ -54,6 +54,31 @@ export default function ConfirmationPage() {
         <p className="text-gray-600">
           Votre paiement est en cours de vérification par un agent.
         </p>
+        {data.payment.status === "pending" && (
+          <p className="text-sm text-amber-600 mt-2">
+            Une fois confirmé, vous recevrez votre billet par email avec le QR code.
+          </p>
+        )}
+      </div>
+
+      {/* QR Code du billet */}
+      <div className="card text-center mb-6">
+        <p className="text-sm text-gray-600 mb-3">Votre QR code de validation :</p>
+        <img
+          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.reference)}`}
+          alt="QR Code"
+          className="w-48 h-48 mx-auto border border-gray-200 rounded-lg p-2"
+        />
+        <p className="font-mono font-bold text-night mt-3">{data.reference}</p>
+        <p className="text-xs text-gray-500 mt-2">
+          Présentez ce QR code à l&apos;agent avant de monter dans le bus.
+        </p>
+        <Link
+          href={`/billet/${data.reference}`}
+          className="btn-primary inline-block mt-4 text-sm"
+        >
+          📄 Voir mon billet complet
+        </Link>
       </div>
 
       {/* Billet */}
