@@ -6,6 +6,16 @@ import { getTripById } from "@/lib/trips";
 import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
 
+// Configuration du bus : 5 colonnes (A,B | allée | C,D,E), 20 rangées
+const COLUMNS = ["A", "B", "C", "D", "E"];
+const TOTAL_ROWS = 20;
+const TOTAL_SEATS = COLUMNS.length * TOTAL_ROWS; // 100 places
+
+// Générer le label d'un siège : ex "A1", "C15", "E20"
+function seatLabel(col: string, row: number): string {
+  return `${col}${row}`;
+}
+
 function SeatContent() {
   const params = useSearchParams();
   const router = useRouter();
@@ -13,7 +23,7 @@ function SeatContent() {
   const passengers = Number(params.get("passengers") || "1");
 
   const trip = getTripById(tripId);
-  const [selectedSeats, setSelectedSeats] = useState<number[]>([]);
+  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
 
   if (!trip) {
     return (
@@ -25,22 +35,18 @@ function SeatContent() {
   }
 
   // Générer les sièges occupés (déterministe)
-  const occupiedSeats = generateOccupied(tripId, trip.capacity);
+  const occupiedSeats = generateOccupied(tripId, TOTAL_SEATS);
 
-  const { seatsPerRow, rows, backRowSeats } = trip.busConfig;
-  const totalSeats = trip.capacity;
-
-  function toggleSeat(seatNum: number) {
-    if (occupiedSeats.has(seatNum)) return;
+  function toggleSeat(seat: string) {
+    if (occupiedSeats.has(seat)) return;
     setSelectedSeats((prev) => {
-      if (prev.includes(seatNum)) {
-        return prev.filter((s) => s !== seatNum);
+      if (prev.includes(seat)) {
+        return prev.filter((s) => s !== seat);
       }
       if (prev.length >= passengers) {
-        // Remplacer le premier sélectionné
-        return [...prev.slice(1), seatNum];
+        return [...prev.slice(1), seat];
       }
-      return [...prev, seatNum];
+      return [...prev, seat];
     });
   }
 
@@ -57,78 +63,6 @@ function SeatContent() {
     router.push(`/passagers?${searchParams.toString()}`);
   }
 
-  // Rendu du plan de bus
-  function renderSeatMap() {
-    const seatElements: React.ReactNode[] = [];
-    let seatNum = 1;
-
-    // Rangées normales
-    for (let r = 0; r < rows - 1; r++) {
-      const rowSeats: React.ReactNode[] = [];
-      for (let c = 0; c < seatsPerRow; c++) {
-        const currentSeat = seatNum++;
-        const isOccupied = occupiedSeats.has(currentSeat);
-        const isSelected = selectedSeats.includes(currentSeat);
-        const isAisle = c === Math.floor(seatsPerRow / 2) - 1;
-
-        rowSeats.push(
-          <button
-            key={currentSeat}
-            onClick={() => toggleSeat(currentSeat)}
-            disabled={isOccupied}
-            className={`
-              w-10 h-10 rounded-lg text-xs font-bold transition-all
-              ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
-              ${isSelected ? "bg-accent-500 text-night ring-2 ring-night" : ""}
-              ${!isOccupied && !isSelected ? "bg-night/10 text-night hover:bg-night/20 cursor-pointer" : ""}
-              ${isAisle ? "mr-4" : ""}
-            `}
-            title={isOccupied ? "Occupé" : `Siège ${currentSeat}`}
-          >
-            {currentSeat}
-          </button>
-        );
-      }
-      seatElements.push(
-        <div key={`row-${r}`} className="flex justify-center gap-1 mb-1">
-          {rowSeats}
-        </div>
-      );
-    }
-
-    // Dernière rangée (fond du bus)
-    const backSeats: React.ReactNode[] = [];
-    for (let c = 0; c < backRowSeats; c++) {
-      const currentSeat = seatNum++;
-      const isOccupied = occupiedSeats.has(currentSeat);
-      const isSelected = selectedSeats.includes(currentSeat);
-
-      backSeats.push(
-        <button
-          key={currentSeat}
-          onClick={() => toggleSeat(currentSeat)}
-          disabled={isOccupied}
-          className={`
-            w-10 h-10 rounded-lg text-xs font-bold transition-all
-            ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
-            ${isSelected ? "bg-accent-500 text-night ring-2 ring-night" : ""}
-            ${!isOccupied && !isSelected ? "bg-night/10 text-night hover:bg-night/20 cursor-pointer" : ""}
-          `}
-          title={isOccupied ? "Occupé" : `Siège ${currentSeat}`}
-        >
-          {currentSeat}
-        </button>
-      );
-    }
-    seatElements.push(
-      <div key="back-row" className="flex justify-center gap-1 mt-2 pt-2 border-t border-dashed">
-        {backSeats}
-      </div>
-    );
-
-    return seatElements;
-  }
-
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
       <Link href="javascript:history.back()" className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
@@ -141,9 +75,9 @@ function SeatContent() {
       </p>
 
       {/* Légende */}
-      <div className="flex gap-4 mb-6 text-sm">
+      <div className="flex gap-4 mb-6 text-sm flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-night/10 rounded" />
+          <div className="w-6 h-6 bg-primary-500 rounded" />
           <span className="text-gray-600">Libre</span>
         </div>
         <div className="flex items-center gap-2">
@@ -157,11 +91,92 @@ function SeatContent() {
       </div>
 
       {/* Plan du bus */}
-      <div className="card mb-6">
+      <div className="card mb-6 overflow-x-auto">
         <div className="text-center text-xs text-gray-400 mb-4">
           🚌 Avant du bus
         </div>
-        {renderSeatMap()}
+
+        {/* En-tête colonnes */}
+        <div className="flex justify-center items-center gap-1 mb-3">
+          <div className="w-8 h-6" /> {/* Espace numéro rangée */}
+          {/* Côté gauche : A, B */}
+          <div className="w-11 text-center text-xs font-bold text-night">A</div>
+          <div className="w-11 text-center text-xs font-bold text-night">B</div>
+          {/* Allée */}
+          <div className="w-6" />
+          {/* Côté droit : C, D, E */}
+          <div className="w-11 text-center text-xs font-bold text-night">C</div>
+          <div className="w-11 text-center text-xs font-bold text-night">D</div>
+          <div className="w-11 text-center text-xs font-bold text-night">E</div>
+        </div>
+
+        {/* Rangées */}
+        {Array.from({ length: TOTAL_ROWS }, (_, rowIdx) => {
+          const rowNum = rowIdx + 1;
+
+          return (
+            <div key={rowNum} className="flex justify-center items-center gap-1 mb-1">
+              {/* Numéro de rangée */}
+              <div className="w-8 text-right text-xs font-medium text-gray-400 pr-1">
+                {rowNum}
+              </div>
+
+              {/* Côté gauche : A, B (2 places) */}
+              {["A", "B"].map((col) => {
+                const seat = seatLabel(col, rowNum);
+                const isOccupied = occupiedSeats.has(seat);
+                const isSelected = selectedSeats.includes(seat);
+
+                return (
+                  <button
+                    key={seat}
+                    onClick={() => toggleSeat(seat)}
+                    disabled={isOccupied}
+                    className={`
+                      w-11 h-9 rounded-md text-xs font-bold transition-all
+                      ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
+                      ${isSelected ? "bg-accent-500 text-night ring-2 ring-night shadow-md" : ""}
+                      ${!isOccupied && !isSelected ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
+                    `}
+                    title={isOccupied ? "Occupé" : `Place ${seat}`}
+                  >
+                    {seat}
+                  </button>
+                );
+              })}
+
+              {/* Allée */}
+              <div className="w-6 flex items-center justify-center">
+                <div className="w-px h-6 bg-gray-200" />
+              </div>
+
+              {/* Côté droit : C, D, E (3 places) */}
+              {["C", "D", "E"].map((col) => {
+                const seat = seatLabel(col, rowNum);
+                const isOccupied = occupiedSeats.has(seat);
+                const isSelected = selectedSeats.includes(seat);
+
+                return (
+                  <button
+                    key={seat}
+                    onClick={() => toggleSeat(seat)}
+                    disabled={isOccupied}
+                    className={`
+                      w-11 h-9 rounded-md text-xs font-bold transition-all
+                      ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
+                      ${isSelected ? "bg-accent-500 text-night ring-2 ring-night shadow-md" : ""}
+                      ${!isOccupied && !isSelected ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
+                    `}
+                    title={isOccupied ? "Occupé" : `Place ${seat}`}
+                  >
+                    {seat}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+
         <div className="text-center text-xs text-gray-400 mt-4">
           Arrière du bus
         </div>
@@ -176,7 +191,7 @@ function SeatContent() {
             </p>
             {selectedSeats.length > 0 && (
               <p className="text-xs text-gray-500 mt-1">
-                Places : {selectedSeats.sort((a, b) => a - b).join(", ")}
+                Places : {selectedSeats.join(", ")}
               </p>
             )}
           </div>
@@ -198,8 +213,8 @@ function SeatContent() {
   );
 }
 
-// Générateur déterministe de sièges occupés
-function generateOccupied(tripId: string, capacity: number): Set<number> {
+// Générateur déterministe de sièges occupés (utilise les labels A1, B3, etc.)
+function generateOccupied(tripId: string, totalSeats: number): Set<string> {
   let h = 2166136261;
   for (let i = 0; i < tripId.length; i++) {
     h ^= tripId.charCodeAt(i);
@@ -213,11 +228,13 @@ function generateOccupied(tripId: string, capacity: number): Set<number> {
     return s / 4294967296;
   }
 
-  const count = Math.floor(rand() * (capacity * 0.4));
-  const taken = new Set<number>();
+  const count = Math.floor(rand() * (totalSeats * 0.35)); // ~35% occupés
+  const taken = new Set<string>();
   let guard = 0;
-  while (taken.size < count && guard < capacity * 4) {
-    taken.add(1 + Math.floor(rand() * capacity));
+  while (taken.size < count && guard < totalSeats * 4) {
+    const colIdx = Math.floor(rand() * COLUMNS.length);
+    const rowNum = 1 + Math.floor(rand() * TOTAL_ROWS);
+    taken.add(seatLabel(COLUMNS[colIdx], rowNum));
     guard++;
   }
   return taken;

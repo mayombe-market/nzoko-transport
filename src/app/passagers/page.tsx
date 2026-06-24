@@ -16,7 +16,7 @@ function PassengersContent() {
   const router = useRouter();
   const tripId = params.get("tripId") || "";
   const passengers = Number(params.get("passengers") || "1");
-  const seats = (params.get("seats") || "").split(",").map(Number);
+  const seats = (params.get("seats") || "").split(",");
 
   const trip = getTripById(tripId);
 
@@ -82,7 +82,7 @@ function PassengersContent() {
         {passengerList.map((passenger, i) => (
           <div key={i} className="card">
             <h3 className="font-bold text-night mb-4">
-              👤 Passager {i + 1} — Siège n°{seats[i]}
+              👤 Passager {i + 1} — Place {seats[i]}
               {i === 0 && <span className="text-xs text-accent-700 ml-2">(Principal)</span>}
             </h3>
 
