@@ -11,9 +11,23 @@ const COLUMNS = ["A", "B", "C", "D", "E"];
 const TOTAL_ROWS = 20;
 const TOTAL_SEATS = COLUMNS.length * TOTAL_ROWS; // 100 places
 
+// Supplément pour les places premium
+const PREMIUM_SUPPLEMENT = 1000; // +1000 FCFA
+
 // Générer le label d'un siège : ex "A1", "C15", "E20"
 function seatLabel(col: string, row: number): string {
   return `${col}${row}`;
+}
+
+// Déterminer si une place est premium :
+// - Rangée 1 derrière le chauffeur (C1, D1, E1)
+// - Places fenêtres (colonne A = fenêtre gauche, colonne E = fenêtre droite)
+function isPremiumSeat(col: string, row: number): boolean {
+  // Fenêtres : A (tout le côté gauche) et E (tout le côté droit)
+  if (col === "A" || col === "E") return true;
+  // Rangée 1 côté chauffeur (C, D, E) — E déjà couvert au-dessus
+  if (row === 1 && (col === "C" || col === "D")) return true;
+  return false;
 }
 
 function SeatContent() {
@@ -50,18 +64,34 @@ function SeatContent() {
     });
   }
 
+  // Calculer le prix total en tenant compte des places premium
+  function calculateTotalPrice(): number {
+    let total = 0;
+    for (const seat of selectedSeats) {
+      const col = seat.charAt(0);
+      const row = parseInt(seat.slice(1));
+      const premium = isPremiumSeat(col, row) ? PREMIUM_SUPPLEMENT : 0;
+      total += trip.price + premium;
+    }
+    return total;
+  }
+
   function handleContinue() {
     if (selectedSeats.length < passengers) {
       alert(`Veuillez sélectionner ${passengers} siège(s).`);
       return;
     }
+    const totalPrice = calculateTotalPrice();
     const searchParams = new URLSearchParams({
       tripId,
       passengers: String(passengers),
       seats: selectedSeats.join(","),
+      totalPrice: String(totalPrice),
     });
     router.push(`/passagers?${searchParams.toString()}`);
   }
+
+  const totalPrice = calculateTotalPrice();
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -75,10 +105,14 @@ function SeatContent() {
       </p>
 
       {/* Légende */}
-      <div className="flex gap-4 mb-6 text-sm flex-wrap">
+      <div className="flex gap-3 mb-6 text-sm flex-wrap">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-primary-500 rounded" />
-          <span className="text-gray-600">Libre</span>
+          <span className="text-gray-600">Standard — {formatXAF(trip.price)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-gradient-to-br from-yellow-400 to-amber-500 rounded border border-amber-600" />
+          <span className="text-gray-600">Premium — {formatXAF(trip.price + PREMIUM_SUPPLEMENT)}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-accent-500 rounded ring-2 ring-night" />
@@ -90,6 +124,11 @@ function SeatContent() {
         </div>
       </div>
 
+      {/* Info premium */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800">
+        ⭐ <strong>Places Premium</strong> (+{formatXAF(PREMIUM_SUPPLEMENT)}) : fenêtres (colonnes A et E) et première rangée derrière le chauffeur.
+      </div>
+
       {/* Plan du bus */}
       <div className="card mb-6 overflow-x-auto">
         <div className="text-center text-xs text-gray-400 mb-2">
@@ -98,31 +137,36 @@ function SeatContent() {
 
         {/* Position du chauffeur */}
         <div className="flex justify-center items-center gap-1 mb-4">
-          <div className="w-8" /> {/* Espace numéro rangée */}
-          {/* Côté gauche : vide (pas de chauffeur ici) */}
+          <div className="w-8" />
           <div className="w-11" />
           <div className="w-11" />
-          {/* Allée */}
           <div className="w-6" />
-          {/* Côté droit : chauffeur */}
           <div className="w-[140px] h-10 bg-night rounded-lg flex items-center justify-center gap-2">
             <span className="text-lg">🚗</span>
             <span className="text-white text-xs font-bold">Chauffeur</span>
           </div>
         </div>
 
+        {/* Indicateur fenêtres */}
+        <div className="flex justify-center items-center gap-1 mb-1">
+          <div className="w-8" />
+          <div className="w-11 text-center text-[10px] text-amber-600 font-medium">fenêtre</div>
+          <div className="w-11" />
+          <div className="w-6" />
+          <div className="w-11" />
+          <div className="w-11" />
+          <div className="w-11 text-center text-[10px] text-amber-600 font-medium">fenêtre</div>
+        </div>
+
         {/* En-tête colonnes */}
         <div className="flex justify-center items-center gap-1 mb-3">
-          <div className="w-8 h-6" /> {/* Espace numéro rangée */}
-          {/* Côté gauche : A, B */}
-          <div className="w-11 text-center text-xs font-bold text-night">A</div>
+          <div className="w-8 h-6" />
+          <div className="w-11 text-center text-xs font-bold text-amber-600">A</div>
           <div className="w-11 text-center text-xs font-bold text-night">B</div>
-          {/* Allée */}
           <div className="w-6" />
-          {/* Côté droit : C, D, E */}
           <div className="w-11 text-center text-xs font-bold text-night">C</div>
           <div className="w-11 text-center text-xs font-bold text-night">D</div>
-          <div className="w-11 text-center text-xs font-bold text-night">E</div>
+          <div className="w-11 text-center text-xs font-bold text-amber-600">E</div>
         </div>
 
         {/* Rangées */}
@@ -141,6 +185,7 @@ function SeatContent() {
                 const seat = seatLabel(col, rowNum);
                 const isOccupied = occupiedSeats.has(seat);
                 const isSelected = selectedSeats.includes(seat);
+                const isPremium = isPremiumSeat(col, rowNum);
 
                 return (
                   <button
@@ -151,9 +196,10 @@ function SeatContent() {
                       w-11 h-9 rounded-md text-xs font-bold transition-all
                       ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
                       ${isSelected ? "bg-accent-500 text-night ring-2 ring-night shadow-md" : ""}
-                      ${!isOccupied && !isSelected ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
+                      ${!isOccupied && !isSelected && isPremium ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-night border border-amber-600 hover:from-yellow-300 hover:to-amber-400 cursor-pointer" : ""}
+                      ${!isOccupied && !isSelected && !isPremium ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
                     `}
-                    title={isOccupied ? "Occupé" : `Place ${seat}`}
+                    title={isOccupied ? "Occupé" : `Place ${seat}${isPremium ? " (Premium)": ""}`}
                   >
                     {seat}
                   </button>
@@ -170,6 +216,7 @@ function SeatContent() {
                 const seat = seatLabel(col, rowNum);
                 const isOccupied = occupiedSeats.has(seat);
                 const isSelected = selectedSeats.includes(seat);
+                const isPremium = isPremiumSeat(col, rowNum);
 
                 return (
                   <button
@@ -180,9 +227,10 @@ function SeatContent() {
                       w-11 h-9 rounded-md text-xs font-bold transition-all
                       ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
                       ${isSelected ? "bg-accent-500 text-night ring-2 ring-night shadow-md" : ""}
-                      ${!isOccupied && !isSelected ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
+                      ${!isOccupied && !isSelected && isPremium ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-night border border-amber-600 hover:from-yellow-300 hover:to-amber-400 cursor-pointer" : ""}
+                      ${!isOccupied && !isSelected && !isPremium ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
                     `}
-                    title={isOccupied ? "Occupé" : `Place ${seat}`}
+                    title={isOccupied ? "Occupé" : `Place ${seat}${isPremium ? " (Premium)": ""}`}
                   >
                     {seat}
                   </button>
@@ -205,15 +253,29 @@ function SeatContent() {
               {selectedSeats.length}/{passengers} siège(s) sélectionné(s)
             </p>
             {selectedSeats.length > 0 && (
-              <p className="text-xs text-gray-500 mt-1">
-                Places : {selectedSeats.join(", ")}
-              </p>
+              <div className="mt-1">
+                {selectedSeats.map((seat) => {
+                  const col = seat.charAt(0);
+                  const row = parseInt(seat.slice(1));
+                  const premium = isPremiumSeat(col, row);
+                  return (
+                    <span key={seat} className={`inline-block text-xs mr-2 px-2 py-0.5 rounded ${premium ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
+                      {seat} {premium ? "⭐" : ""} — {formatXAF(trip.price + (premium ? PREMIUM_SUPPLEMENT : 0))}
+                    </span>
+                  );
+                })}
+              </div>
             )}
           </div>
           <div className="text-right">
             <p className="text-lg font-black text-accent-700">
-              {formatXAF(trip.price * passengers)}
+              {formatXAF(totalPrice || trip.price * passengers)}
             </p>
+            {selectedSeats.length > 0 && selectedSeats.some(s => isPremiumSeat(s.charAt(0), parseInt(s.slice(1)))) && (
+              <p className="text-xs text-amber-600">
+                Inclut supplément premium
+              </p>
+            )}
             <button
               onClick={handleContinue}
               disabled={selectedSeats.length < passengers}

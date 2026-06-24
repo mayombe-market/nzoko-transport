@@ -17,6 +17,7 @@ function PassengersContent() {
   const tripId = params.get("tripId") || "";
   const passengers = Number(params.get("passengers") || "1");
   const seats = (params.get("seats") || "").split(",");
+  const totalPrice = Number(params.get("totalPrice") || "0");
 
   const trip = getTripById(tripId);
 
@@ -61,7 +62,7 @@ function PassengersContent() {
       trip,
       passengers: passengerList,
       seats,
-      totalPrice: trip.price * passengers,
+      totalPrice: totalPrice || trip.price * passengers,
     };
     sessionStorage.setItem("nzoko_booking", JSON.stringify(bookingData));
     router.push("/paiement");
@@ -126,7 +127,7 @@ function PassengersContent() {
             </div>
             <div className="text-right">
               <p className="text-2xl font-black text-accent-700">
-                {formatXAF(trip.price * passengers)}
+                {formatXAF(totalPrice || trip.price * passengers)}
               </p>
             </div>
           </div>
