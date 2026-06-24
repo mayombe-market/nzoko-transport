@@ -1,58 +1,91 @@
-# NzelaBus — Réservation de bus au Congo-Brazzaville
+# Nzoko Transport — Plateforme de réservation de bus
 
-Plateforme de réservation de billets de bus (style FlixBus) adaptée au
-Congo-Brazzaville : axes routiers réels, prix en Francs CFA (XAF), sélection
-du siège sur plan du bus, et **paiement manuel par Mobile Money (MTN / Airtel)**
-avec confirmation par un agent.
+Système de réservation de billets de bus pour **Nzoko Transport** (Congo-Brazzaville).
+Application web Next.js avec backend Supabase, déployée sur Vercel.
+
+## Stack technique
+
+- **Frontend** : Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- **Backend** : Supabase (PostgreSQL + Auth + Realtime)
+- **Déploiement** : Vercel
+- **Paiement** : Mobile Money (MTN / Airtel) — confirmation manuelle par agent
 
 ## Fonctionnalités
 
-- 🔎 Recherche de trajets (ville de départ / arrivée / date / passagers)
+- 🔎 Recherche de trajets (ville départ / arrivée / date / passagers)
 - 🛣️ Axes réels : RN1 (Brazzaville ↔ Pointe-Noire), RN2 (Brazzaville ↔ Ouesso),
-  axe des Plateaux (Djambala), axe Niari (Sibiti)
-- 💺 Sélection du siège sur un plan de bus interactif
-- 📲 Paiement Mobile Money manuel : le client envoie l'argent au numéro MTN,
-  reçoit un code de transaction par SMS et le saisit sur le site
-- 🛠️ Espace agent pour confirmer ou refuser chaque paiement
+  axe des Plateaux, axe Niari
+- 💺 Sélection du siège sur plan de bus interactif
+- 📲 Paiement Mobile Money : le client envoie l'argent, saisit le code SMS
+- 🛠️ Dashboard agent : confirmer/refuser les paiements, gérer la flotte et les lignes
 - 🎫 Billet avec statut en temps réel
-- 📱 Design responsive, mobile-first
+- 📱 Design responsive mobile-first (bleu de nuit + jaune)
 
-## Lancer le site
+## Installation locale
 
-C'est un site statique « no-build ». Aucune installation requise.
+```bash
+# Cloner le repo
+git clone https://github.com/mayombe-market/nzoko-transport.git
+cd nzoko-transport
 
-- **En ligne** : activez GitHub Pages (Settings → Pages → branche `main`, dossier `/root`).
-- **En local** : servez le dossier avec un serveur statique, par ex. :
-  ```bash
-  python3 -m http.server 8000
-  ```
-  puis ouvrez http://localhost:8000
+# Installer les dépendances
+npm install
 
-> React est chargé via CDN (esm.sh) avec `htm` — pas d'étape de build.
+# Configurer les variables d'environnement
+cp .env.local.example .env.local
+# Éditer .env.local avec vos clés Supabase
 
-## Espace agent (démo)
+# Lancer en développement
+npm run dev
+```
 
-- URL : `#/admin`
-- Code d'accès par défaut : `nzela2026` (modifiable dans l'onglet Paramètres)
+## Configuration Supabase
+
+1. Créer un projet sur [supabase.com](https://supabase.com)
+2. Exécuter `supabase/schema.sql` dans l'éditeur SQL
+3. Exécuter `supabase/seed.sql` pour les données initiales
+4. Copier l'URL et la clé anon dans `.env.local`
+
+## Déploiement Vercel
+
+1. Connecter le repo GitHub sur [vercel.com](https://vercel.com)
+2. Ajouter les variables d'environnement (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+3. Déployer — c'est tout !
+
+## Espace agent
+
+- URL : `/admin`
+- Code d'accès démo : `nzoko2026`
+- En production : sera remplacé par Supabase Auth
 
 ## Structure
 
 ```
-index.html          Point d'entrée + importmap (React via CDN)
-assets/styles.css    Styles
 src/
-  data.js            Villes, axes, opérateurs, recherche de trajets
-  store.js           Stockage local (réservations, config, session agent)
-  format.js          Formatage XAF / dates / références
-  router.js          Routeur par hash
-  app.js             Application + routes
-  components/        Header, Footer, SearchForm, Ticket
-  pages/             Home, Results, SeatSelection, Passengers, Payment,
-                     Confirmation, MyBookings, Admin
+  app/
+    layout.tsx          Layout principal (Header + Footer)
+    page.tsx            Accueil + recherche
+    recherche/          Résultats de recherche
+    siege/              Sélection des sièges
+    passagers/          Formulaire passagers
+    paiement/           Instructions + confirmation paiement
+    confirmation/       Billet + statut
+    mes-reservations/   Retrouver ses billets
+    admin/              Dashboard opérateur
+  components/           Composants réutilisables
+  lib/                  Utilitaires, client Supabase, logique trajets
+  types/                Types TypeScript
+supabase/
+  schema.sql            Schéma de la base de données
+  seed.sql              Données initiales
 ```
 
-## Limites (version démo)
+## Branding
 
-Les réservations sont stockées dans le navigateur (localStorage). Pour une
-mise en production multi-utilisateurs, prévoir un backend (base de données,
-comptes agents, notifications SMS, vérification des paiements Mobile Money).
+- **Nom** : Nzoko Transport
+- **Couleurs** : Bleu de nuit (#0f2340) + Jaune doré (#ffd700)
+- **Symbole** : Éléphant 🐘
+
+## Licence
+
+Propriétaire — Mayombe Market.

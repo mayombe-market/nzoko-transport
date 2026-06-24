@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-night: #0f2340;
+    --color-night-light: #1a3a6b;
+    --color-night-dark: #071020;
+    --color-gold: #ffd700;
+    --color-gold-dark: #b39700;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-night text-white px-6 py-3 rounded-lg font-semibold
+           hover:bg-night-light transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2;
+  }
+
+  .btn-accent {
+    @apply bg-accent-500 text-night px-6 py-3 rounded-lg font-bold
+           hover:bg-accent-400 transition-colors duration-200
+           focus:outline-none focus:ring-2 focus:ring-night focus:ring-offset-2;
+  }
+
+  .btn-outline {
+    @apply border-2 border-night text-night px-6 py-3 rounded-lg font-semibold
+           hover:bg-night hover:text-white transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-md border border-gray-100 p-6;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg
+           focus:outline-none focus:ring-2 focus:ring-night focus:border-transparent
+           placeholder:text-gray-400;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold text-night;
+  }
+}
+
+/* Scrollbar custom */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-night/30 rounded-full hover:bg-night/50;
+}
