@@ -48,13 +48,13 @@ export function SearchForm() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Départ */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-night mb-2">
             🚏 Ville de départ
           </label>
           <select
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="input-field"
+            className="input-field text-lg"
             required
           >
             <option value="">Choisir...</option>
@@ -68,13 +68,13 @@ export function SearchForm() {
 
         {/* Arrivée */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-night mb-2">
             📍 Ville d&apos;arrivée
           </label>
           <select
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="input-field"
+            className="input-field text-lg"
             required
           >
             <option value="">Choisir...</option>
@@ -88,7 +88,7 @@ export function SearchForm() {
 
         {/* Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-night mb-2">
             📅 Date de voyage
           </label>
           <input
@@ -96,20 +96,20 @@ export function SearchForm() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
             min={today}
-            className="input-field"
+            className="input-field text-lg"
             required
           />
         </div>
 
         {/* Passagers */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-bold text-night mb-2">
             👥 Passagers
           </label>
           <select
             value={passengers}
             onChange={(e) => setPassengers(Number(e.target.value))}
-            className="input-field"
+            className="input-field text-lg"
           >
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <option key={n} value={n}>
