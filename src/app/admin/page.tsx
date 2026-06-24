@@ -1,68 +1,296 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { signOut } from "@/lib/auth";
+import type { User } from "@supabase/supabase-js";
+
+interface AgentProfile {
+  id: string;
+  full_name: string;
+  role: "admin" | "agent";
+  phone: string | null;
+  is_active: boolean;
+  created_at: string;
+}
 
 export default function AdminPage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [password, setPassword] = useState("");
-  const [activeTab, setActiveTab] = useState<"reservations" | "bus" | "lignes" | "stats">("reservations");
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<AgentProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"reservations" | "bus" | "lignes" | "agents" | "stats">("reservations");
 
-  // Login simple pour la démo (sera remplacé par Supabase Auth)
-  function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    if (password === "nzoko2026") {
-      setIsLoggedIn(true);
-    } else {
-      alert("Code d'accès incorrect");
+  // Login states
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Agent management states
+  const [agents, setAgents] = useState<AgentProfile[]>([]);
+  const [showAddAgent, setShowAddAgent] = useState(false);
+  const [newAgentEmail, setNewAgentEmail] = useState("");
+  const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentPhone, setNewAgentPhone] = useState("");
+  const [newAgentRole, setNewAgentRole] = useState<"admin" | "agent">("agent");
+  const [newAgentPassword, setNewAgentPassword] = useState("");
+  const [addingAgent, setAddingAgent] = useState(false);
+  const [agentMessage, setAgentMessage] = useState("");
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  async function checkAuth() {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setUser(session.user);
+      await loadProfile(session.user.id);
+    }
+    setLoading(false);
+
+    // Écouter les changements
+    supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        await loadProfile(session.user.id);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    });
+  }
+
+  async function loadProfile(userId: string) {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("agent_profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (data) {
+      setProfile(data as AgentProfile);
+      // Charger les agents si admin
+      if (data.role === "admin") {
+        loadAgents();
+      }
     }
   }
 
-  if (!isLoggedIn) {
+  async function loadAgents() {
+    if (!supabase) return;
+    const { data } = await supabase
+      .from("agent_profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (data) {
+      setAgents(data as AgentProfile[]);
+    }
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supabase) {
+      setLoginError("Supabase non configuré.");
+      return;
+    }
+
+    setLoginLoading(true);
+    setLoginError("");
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setLoginError("Email ou mot de passe incorrect.");
+      setLoginLoading(false);
+      return;
+    }
+
+    // Vérifier que c'est bien un agent/admin
+    if (data.user) {
+      const { data: agentData } = await supabase
+        .from("agent_profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .single();
+
+      if (!agentData) {
+        setLoginError("Ce compte n'a pas accès à l'espace agent. Contactez l'administrateur.");
+        await supabase.auth.signOut();
+        setLoginLoading(false);
+        return;
+      }
+
+      setUser(data.user);
+      setProfile(agentData as AgentProfile);
+      if (agentData.role === "admin") {
+        loadAgents();
+      }
+    }
+
+    setLoginLoading(false);
+  }
+
+  async function handleAddAgent(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supabase) return;
+
+    setAddingAgent(true);
+    setAgentMessage("");
+
+    try {
+      // Créer le compte via l'API
+      const response = await fetch("/api/create-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newAgentEmail,
+          password: newAgentPassword,
+          fullName: newAgentName,
+          phone: newAgentPhone,
+          role: newAgentRole,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setAgentMessage(`✅ Agent "${newAgentName}" créé avec succès !`);
+        setNewAgentEmail("");
+        setNewAgentName("");
+        setNewAgentPhone("");
+        setNewAgentPassword("");
+        setShowAddAgent(false);
+        loadAgents();
+      } else {
+        setAgentMessage(`❌ Erreur : ${result.message}`);
+      }
+    } catch (err) {
+      setAgentMessage("❌ Erreur de connexion.");
+    }
+
+    setAddingAgent(false);
+  }
+
+  async function toggleAgentStatus(agentId: string, currentActive: boolean) {
+    if (!supabase) return;
+    await supabase
+      .from("agent_profiles")
+      .update({ is_active: !currentActive })
+      .eq("id", agentId);
+    loadAgents();
+  }
+
+  async function changeAgentRole(agentId: string, newRole: "admin" | "agent") {
+    if (!supabase) return;
+    await supabase
+      .from("agent_profiles")
+      .update({ role: newRole })
+      .eq("id", agentId);
+    loadAgents();
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <div className="animate-pulse text-gray-400">Chargement...</div>
+      </div>
+    );
+  }
+
+  // Login form (si pas connecté ou pas d'accès agent)
+  if (!user || !profile) {
     return (
       <div className="max-w-md mx-auto px-4 py-16">
-        <div className="card text-center">
-          <div className="w-16 h-16 bg-night rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🔒</span>
+        <div className="card">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 bg-night rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <h1 className="text-xl font-bold text-night mb-2">Espace Agent</h1>
+            <p className="text-sm text-gray-600">
+              Connectez-vous avec votre compte agent pour accéder au dashboard.
+            </p>
           </div>
-          <h1 className="text-xl font-bold text-night mb-2">Espace Agent</h1>
-          <p className="text-sm text-gray-600 mb-6">
-            Connectez-vous pour gérer les réservations et la flotte.
-          </p>
+
+          {loginError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
+              {loginError}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field text-center"
-              placeholder="Code d'accès"
-              required
-            />
-            <button type="submit" className="btn-primary w-full">
-              Se connecter
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field"
+                placeholder="agent@nzoko.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-field"
+                placeholder="••••••••"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="btn-primary w-full disabled:opacity-50"
+            >
+              {loginLoading ? "Connexion..." : "Se connecter"}
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 mt-4">
-            Code démo : nzoko2026
+          <p className="text-xs text-gray-400 mt-6 text-center">
+            Seuls les comptes avec un rôle agent ou admin peuvent accéder ici.<br />
+            Contactez votre administrateur si vous n&apos;avez pas d&apos;accès.
           </p>
         </div>
       </div>
     );
   }
 
+  // Dashboard principal
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Header admin */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="section-title">Dashboard Nzoko Transport</h1>
-          <p className="text-gray-600 text-sm">Gestion des opérations</p>
+          <p className="text-gray-600 text-sm">
+            Connecté en tant que <strong>{profile.full_name}</strong>
+            <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+              profile.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+            }`}>
+              {profile.role === "admin" ? "Administrateur" : "Agent"}
+            </span>
+          </p>
         </div>
         <button
-          onClick={() => setIsLoggedIn(false)}
-          className="text-sm text-gray-500 hover:text-red-600"
+          onClick={() => signOut()}
+          className="text-sm text-gray-500 hover:text-red-600 transition-colors"
         >
           Déconnexion
         </button>
@@ -83,8 +311,8 @@ export default function AdminPage() {
           <p className="text-xs text-gray-500">Paiements en attente</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-black text-green-600">4</p>
-          <p className="text-xs text-gray-500">Bus actifs</p>
+          <p className="text-3xl font-black text-green-600">{agents.length || 1}</p>
+          <p className="text-xs text-gray-500">Agents actifs</p>
         </div>
       </div>
 
@@ -115,6 +343,7 @@ export default function AdminPage() {
           { key: "reservations", label: "🎫 Réservations" },
           { key: "bus", label: "🚌 Flotte" },
           { key: "lignes", label: "🛣️ Lignes" },
+          ...(profile.role === "admin" ? [{ key: "agents", label: "👥 Agents" }] : []),
           { key: "stats", label: "📊 Statistiques" },
         ].map((tab) => (
           <button
@@ -137,7 +366,7 @@ export default function AdminPage() {
           <h2 className="font-bold text-night mb-4">Réservations récentes</h2>
           <div className="text-center py-8 text-gray-400">
             <div className="text-4xl mb-2">🎫</div>
-            <p>Les réservations apparaîtront ici une fois connecté à Supabase.</p>
+            <p>Les réservations apparaîtront ici.</p>
             <p className="text-xs mt-2">
               Vous pourrez confirmer ou refuser les paiements Mobile Money.
             </p>
@@ -149,7 +378,9 @@ export default function AdminPage() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-night">Flotte de bus</h2>
-            <button className="btn-accent text-sm px-4 py-2">+ Ajouter un bus</button>
+            {profile.role === "admin" && (
+              <button className="btn-accent text-sm px-4 py-2">+ Ajouter un bus</button>
+            )}
           </div>
 
           <div className="overflow-x-auto">
@@ -165,10 +396,10 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {[
-                  { name: "Grand Car 01", type: "Coach", capacity: 49, amenities: "Clim, WiFi, USB, Toilettes", active: true },
-                  { name: "Grand Car 02", type: "Coach", capacity: 49, amenities: "Clim, USB, Toilettes, Collation", active: true },
-                  { name: "Minibus 01", type: "Minibus", capacity: 16, amenities: "Clim", active: true },
-                  { name: "Minibus 02", type: "Minibus", capacity: 16, amenities: "Clim, USB", active: true },
+                  { name: "Grand Car 01", type: "Coach", capacity: 100, amenities: "Clim, WiFi, USB, Toilettes", active: true },
+                  { name: "Grand Car 02", type: "Coach", capacity: 100, amenities: "Clim, USB, Toilettes, Collation", active: true },
+                  { name: "Minibus 01", type: "Minibus", capacity: 19, amenities: "Clim", active: true },
+                  { name: "Minibus 02", type: "Minibus", capacity: 19, amenities: "Clim, USB", active: true },
                 ].map((bus) => (
                   <tr key={bus.name} className="border-b hover:bg-gray-50">
                     <td className="py-3 pr-4 font-medium">{bus.name}</td>
@@ -192,7 +423,9 @@ export default function AdminPage() {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-night">Lignes & horaires</h2>
-            <button className="btn-accent text-sm px-4 py-2">+ Nouvelle ligne</button>
+            {profile.role === "admin" && (
+              <button className="btn-accent text-sm px-4 py-2">+ Nouvelle ligne</button>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -207,11 +440,168 @@ export default function AdminPage() {
                   <p className="font-medium text-night">{line.route}</p>
                   <p className="text-xs text-gray-500">{line.services} service(s) • Horaires : {line.times}</p>
                 </div>
-                <button className="text-sm text-night hover:text-accent-700 font-medium">
-                  Modifier →
-                </button>
+                {profile.role === "admin" && (
+                  <button className="text-sm text-night hover:text-accent-700 font-medium">
+                    Modifier →
+                  </button>
+                )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Onglet Agents — admin uniquement */}
+      {activeTab === "agents" && profile.role === "admin" && (
+        <div className="space-y-6">
+          {/* Message */}
+          {agentMessage && (
+            <div className={`p-3 rounded-lg text-sm ${agentMessage.startsWith("✅") ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+              {agentMessage}
+            </div>
+          )}
+
+          {/* Bouton ajouter */}
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-night text-lg">Gestion des agents</h2>
+            <button
+              onClick={() => setShowAddAgent(!showAddAgent)}
+              className="btn-accent text-sm px-4 py-2"
+            >
+              {showAddAgent ? "Annuler" : "+ Nouvel agent"}
+            </button>
+          </div>
+
+          {/* Formulaire d'ajout */}
+          {showAddAgent && (
+            <div className="card border-2 border-accent-400">
+              <h3 className="font-bold text-night mb-4">Créer un compte agent</h3>
+              <form onSubmit={handleAddAgent} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
+                  <input
+                    type="text"
+                    value={newAgentName}
+                    onChange={(e) => setNewAgentName(e.target.value)}
+                    className="input-field"
+                    placeholder="Jean Makaya"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <input
+                    type="email"
+                    value={newAgentEmail}
+                    onChange={(e) => setNewAgentEmail(e.target.value)}
+                    className="input-field"
+                    placeholder="agent@nzoko.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+                  <input
+                    type="tel"
+                    value={newAgentPhone}
+                    onChange={(e) => setNewAgentPhone(e.target.value)}
+                    className="input-field"
+                    placeholder="06 XXX XX XX"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe *</label>
+                  <input
+                    type="password"
+                    value={newAgentPassword}
+                    onChange={(e) => setNewAgentPassword(e.target.value)}
+                    className="input-field"
+                    placeholder="Minimum 6 caractères"
+                    required
+                    minLength={6}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
+                  <select
+                    value={newAgentRole}
+                    onChange={(e) => setNewAgentRole(e.target.value as "admin" | "agent")}
+                    className="input-field"
+                  >
+                    <option value="agent">Agent (scanner, voir réservations)</option>
+                    <option value="admin">Administrateur (accès complet)</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    disabled={addingAgent}
+                    className="btn-primary w-full disabled:opacity-50"
+                  >
+                    {addingAgent ? "Création..." : "Créer l'agent"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Liste des agents */}
+          <div className="card">
+            <h3 className="font-bold text-night mb-4">Agents enregistrés ({agents.length})</h3>
+
+            {agents.length === 0 ? (
+              <div className="text-center py-6 text-gray-400">
+                <p>Aucun agent enregistré. Créez le premier agent ci-dessus.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {agents.map((agent) => (
+                  <div key={agent.id} className={`flex items-center justify-between p-4 rounded-lg border ${agent.is_active ? "bg-white border-gray-200" : "bg-gray-50 border-gray-200 opacity-60"}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${agent.role === "admin" ? "bg-purple-500" : "bg-blue-500"}`}>
+                        {agent.full_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-medium text-night">{agent.full_name}</p>
+                        <p className="text-xs text-gray-500">
+                          {agent.phone || "Pas de téléphone"} •
+                          <span className={`ml-1 ${agent.role === "admin" ? "text-purple-600" : "text-blue-600"}`}>
+                            {agent.role === "admin" ? "Administrateur" : "Agent"}
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Actions (pas sur soi-même) */}
+                    {agent.id !== profile.id && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => changeAgentRole(agent.id, agent.role === "admin" ? "agent" : "admin")}
+                          className="text-xs px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
+                          title="Changer le rôle"
+                        >
+                          {agent.role === "admin" ? "→ Agent" : "→ Admin"}
+                        </button>
+                        <button
+                          onClick={() => toggleAgentStatus(agent.id, agent.is_active)}
+                          className={`text-xs px-3 py-1 rounded transition-colors ${
+                            agent.is_active
+                              ? "border border-red-200 text-red-600 hover:bg-red-50"
+                              : "border border-green-200 text-green-600 hover:bg-green-50"
+                          }`}
+                        >
+                          {agent.is_active ? "Désactiver" : "Réactiver"}
+                        </button>
+                      </div>
+                    )}
+
+                    {agent.id === profile.id && (
+                      <span className="text-xs text-gray-400">(vous)</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -221,7 +611,7 @@ export default function AdminPage() {
           <div className="text-4xl mb-2">📊</div>
           <h2 className="font-bold text-night mb-2">Statistiques</h2>
           <p className="text-gray-500">
-            Les statistiques (revenus, taux d&apos;occupation, trajets populaires) seront disponibles après connexion à Supabase.
+            Les statistiques (revenus, taux d&apos;occupation, trajets populaires) seront disponibles prochainement.
           </p>
         </div>
       )}
