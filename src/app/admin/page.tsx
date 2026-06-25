@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { signOut } from "@/lib/auth";
+import { BusFleetTab } from "@/components/BusFleetTab";
 import type { User } from "@supabase/supabase-js";
 
 interface AgentProfile {
@@ -375,48 +376,7 @@ export default function AdminPage() {
       )}
 
       {activeTab === "bus" && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-night">Flotte de bus</h2>
-            {profile.role === "admin" && (
-              <button className="btn-accent text-sm px-4 py-2">+ Ajouter un bus</button>
-            )}
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-gray-500">
-                  <th className="pb-2 pr-4">Nom</th>
-                  <th className="pb-2 pr-4">Type</th>
-                  <th className="pb-2 pr-4">Capacité</th>
-                  <th className="pb-2 pr-4">Équipements</th>
-                  <th className="pb-2">Statut</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { name: "Grand Car 01", type: "Coach", capacity: 100, amenities: "Clim, WiFi, USB, Toilettes", active: true },
-                  { name: "Grand Car 02", type: "Coach", capacity: 100, amenities: "Clim, USB, Toilettes, Collation", active: true },
-                  { name: "Minibus 01", type: "Minibus", capacity: 19, amenities: "Clim", active: true },
-                  { name: "Minibus 02", type: "Minibus", capacity: 19, amenities: "Clim, USB", active: true },
-                ].map((bus) => (
-                  <tr key={bus.name} className="border-b hover:bg-gray-50">
-                    <td className="py-3 pr-4 font-medium">{bus.name}</td>
-                    <td className="py-3 pr-4">{bus.type}</td>
-                    <td className="py-3 pr-4">{bus.capacity} places</td>
-                    <td className="py-3 pr-4 text-xs text-gray-500">{bus.amenities}</td>
-                    <td className="py-3">
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">
-                        Actif
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <BusFleetTab isAdmin={profile.role === "admin"} />
       )}
 
       {activeTab === "lignes" && (
