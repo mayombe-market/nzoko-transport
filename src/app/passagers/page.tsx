@@ -18,6 +18,8 @@ function PassengersContent() {
   const passengers = Number(params.get("passengers") || "1");
   const seats = (params.get("seats") || "").split(",");
   const totalPrice = Number(params.get("totalPrice") || "0");
+  const fromTerminal = params.get("fromTerminal") || "";
+  const toTerminal = params.get("toTerminal") || "";
 
   const trip = getTripById(tripId);
 
@@ -59,6 +61,8 @@ function PassengersContent() {
     // Stocker temporairement dans sessionStorage
     const bookingData = {
       tripId,
+      fromTerminal,
+      toTerminal,
       trip,
       passengers: passengerList,
       seats,

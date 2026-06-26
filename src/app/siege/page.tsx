@@ -35,6 +35,8 @@ function SeatContent() {
   const router = useRouter();
   const tripId = params.get("tripId") || "";
   const passengers = Number(params.get("passengers") || "1");
+  const fromTerminal = params.get("fromTerminal") || "";
+  const toTerminal = params.get("toTerminal") || "";
 
   const trip = getTripById(tripId);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
@@ -87,6 +89,8 @@ function SeatContent() {
       passengers: String(passengers),
       seats: selectedSeats.join(","),
       totalPrice: String(totalPrice),
+      ...(fromTerminal && { fromTerminal }),
+      ...(toTerminal && { toTerminal }),
     });
     router.push(`/passagers?${searchParams.toString()}`);
   }

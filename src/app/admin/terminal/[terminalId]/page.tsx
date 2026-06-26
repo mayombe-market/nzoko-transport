@@ -15,6 +15,25 @@ const TERMINALS: Record<string, { name: string; city: string }> = {
   "ngoyo": { name: "Ngoyo", city: "Pointe-Noire" },
 };
 
+// Noms des villes
+const CITY_NAMES: Record<string, string> = {
+  brazzaville: "Brazzaville",
+  pointenoire: "Pointe-Noire",
+  dolisie: "Dolisie",
+  nkayi: "Nkayi",
+  oyo: "Oyo",
+  ouesso: "Ouesso",
+  djambala: "Djambala",
+  sibiti: "Sibiti",
+  kinkala: "Kinkala",
+  mindouli: "Mindouli",
+  madingou: "Madingou",
+  loudima: "Loudima",
+  gamboma: "Gamboma",
+  owando: "Owando",
+  makoua: "Makoua",
+};
+
 interface Booking {
   id: string;
   reference: string;
@@ -39,6 +58,7 @@ export default function TerminalDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0]);
+  const [confirmMessage, setConfirmMessage] = useState("");
 
   useEffect(() => {
     loadBookings();
@@ -65,10 +85,59 @@ export default function TerminalDashboard() {
 
   async function confirmBooking(bookingId: string) {
     if (!supabase) return;
+
+    // 1. Confirmer la réservation
+    setConfirmMessage("⏳ Confirmation en cours...");
     await supabase
       .from("bookings")
       .update({ status: "confirmed" })
       .eq("id", bookingId);
+
+    // 2. Récupérer les infos complètes pour l'email
+    const { data: bookingData } = await supabase
+      .from("bookings")
+      .select("*, passengers(*)")
+      .eq("id", bookingId)
+      .single();
+
+    // 3. Envoyer le billet par email si le client a un email
+    if (bookingData && bookingData.customer_email) {
+      const primaryPassenger = bookingData.passengers?.find((p: any) => p.is_primary) || bookingData.passengers?.[0];
+      const seats = bookingData.passengers?.map((p: any) => p.seat_number).filter(Boolean).join(", ") || "N/A";
+
+      const fromCityName = CITY_NAMES[bookingData.from_city] || bookingData.from_city;
+      const toCityName = CITY_NAMES[bookingData.to_city] || bookingData.to_city;
+
+      try {
+        await fetch("/api/send-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            booking: {
+              reference: bookingData.reference,
+              email: bookingData.customer_email,
+              passengerName: primaryPassenger?.full_name || "Passager",
+              from: fromCityName,
+              to: toCityName,
+              date: bookingData.date,
+              departureTime: bookingData.departure_time,
+              seats,
+              totalPrice: bookingData.total_price,
+            },
+          }),
+        });
+        setConfirmMessage(`✅ Réservation confirmée ! Email envoyé à ${bookingData.customer_email}`);
+      } catch (err) {
+        console.error("Email send error:", err);
+        setConfirmMessage("✅ Réservation confirmée ! (email non envoyé)");
+      }
+    } else {
+      setConfirmMessage("✅ Réservation confirmée !");
+    }
+
+    // Masquer le message après 5 secondes
+    setTimeout(() => setConfirmMessage(""), 5000);
+
     loadBookings();
   }
 
@@ -127,6 +196,15 @@ export default function TerminalDashboard() {
       </div>
 
       {/* Stats rapides */}
+      {confirmMessage && (
+        <div className={`mb-6 p-3 rounded-lg text-sm font-medium ${
+          confirmMessage.startsWith("✅") ? "bg-green-50 text-green-700 border border-green-200" :
+          confirmMessage.startsWith("⏳") ? "bg-blue-50 text-blue-700 border border-blue-200" :
+          "bg-gray-50 text-gray-700 border border-gray-200"
+        }`}>
+          {confirmMessage}
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="card text-center">
           <p className="text-2xl font-black text-night">{bookings.length}</p>
@@ -192,7 +270,7 @@ export default function TerminalDashboard() {
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                         <span>🕐 {booking.departure_time}</span>
-                        <span>→ {booking.to_city}</span>
+                        <span>→ {CITY_NAMES[booking.to_city] || booking.to_city}</span>
                         <span>💺 {primaryPassenger?.seat_number || "?"}</span>
                         <span className="font-semibold text-accent-700">
                           {new Intl.NumberFormat("fr-FR").format(booking.total_price)} FCFA

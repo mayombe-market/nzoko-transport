@@ -124,7 +124,7 @@ function ResultsContent() {
                     )}
                   </div>
                   <Link
-                    href={`/siege?tripId=${encodeURIComponent(trip.tripId)}&passengers=${passengers}`}
+                    href={`/siege?tripId=${encodeURIComponent(trip.tripId)}&passengers=${passengers}${fromTerminal ? `&fromTerminal=${fromTerminal}` : ""}${toTerminal ? `&toTerminal=${toTerminal}` : ""}`}
                     className="btn-accent text-sm px-5 py-2 whitespace-nowrap"
                   >
                     Choisir →

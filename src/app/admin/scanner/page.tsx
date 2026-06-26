@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 interface ValidationResult {
@@ -25,55 +24,81 @@ export default function ScannerPage() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [scannerReady, setScannerReady] = useState(false);
+  const scannerRef = useRef<any>(null);
+  const scannerContainerRef = useRef<HTMLDivElement>(null);
 
-  // Démarrer/arrêter la caméra
+  // Démarrer/arrêter la caméra avec html5-qrcode
   useEffect(() => {
     if (mode === "camera") {
-      startCamera();
+      startScanner();
     } else {
-      stopCamera();
+      stopScanner();
     }
-    return () => stopCamera();
+    return () => stopScanner();
   }, [mode]);
 
-  async function startCamera() {
+  async function startScanner() {
     setCameraError("");
+    setScannerReady(false);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }, // Caméra arrière sur mobile
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+      // Import dynamique de html5-qrcode (côté client uniquement)
+      const { Html5Qrcode } = await import("html5-qrcode");
+
+      // Attendre que le DOM soit prêt
+      await new Promise((r) => setTimeout(r, 100));
+
+      if (!scannerContainerRef.current) return;
+
+      const scanner = new Html5Qrcode("qr-scanner-container");
+      scannerRef.current = scanner;
+
+      await scanner.start(
+        { facingMode: "environment" }, // Caméra arrière
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+        },
+        // Succès : QR décodé
+        (decodedText: string) => {
+          // Vibrer pour feedback (si supporté)
+          if (navigator.vibrate) navigator.vibrate(200);
+          // Valider le billet
+          validateTicket(decodedText);
+          // Pause le scanner après un scan réussi
+          scanner.pause(true);
+          // Reprendre après 3 secondes
+          setTimeout(() => {
+            try { scanner.resume(); } catch (e) {}
+          }, 3000);
+        },
+        // Erreur de décodage (normal, continue de scanner)
+        () => {}
+      );
+
+      setScannerReady(true);
+    } catch (err: any) {
+      console.error("Scanner error:", err);
+      if (err?.message?.includes("Permission")) {
+        setCameraError("Accès à la caméra refusé. Autorisez l'accès dans les paramètres de votre navigateur.");
+      } else if (err?.message?.includes("NotFound") || err?.message?.includes("Requested device not found")) {
+        setCameraError("Aucune caméra détectée sur cet appareil.");
+      } else {
+        setCameraError("Impossible de démarrer la caméra. Utilisez le mode manuel.");
       }
-      // Scanner toutes les 500ms
-      intervalRef.current = setInterval(scanFrame, 500);
-    } catch (err) {
-      setCameraError("Impossible d'accéder à la caméra. Utilisez le mode manuel.");
       setMode("manual");
     }
   }
 
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
+  function stopScanner() {
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.stop().catch(() => {});
+      } catch (e) {}
+      scannerRef.current = null;
     }
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-  }
-
-  async function scanFrame() {
-    // Note: en production, utiliser html5-qrcode ou jsQR pour décoder
-    // Pour l'instant, on utilise le mode manuel principalement
-    // La librairie html5-qrcode sera ajoutée via npm
+    setScannerReady(false);
   }
 
   async function validateTicket(reference: string) {
@@ -107,6 +132,11 @@ export default function ScannerPage() {
   function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     validateTicket(manualCode);
+  }
+
+  function resetResult() {
+    setResult(null);
+    setManualCode("");
   }
 
   return (
@@ -149,27 +179,33 @@ export default function ScannerPage() {
         <div className="card mb-6">
           {cameraError ? (
             <div className="text-center py-8 text-red-600 text-sm">
-              <p>📷 {cameraError}</p>
+              <div className="text-4xl mb-3">📷</div>
+              <p>{cameraError}</p>
+              <button
+                onClick={() => setMode("manual")}
+                className="btn-outline mt-4 text-sm"
+              >
+                Utiliser le mode manuel
+              </button>
             </div>
           ) : (
-            <div className="relative">
-              <video
-                ref={videoRef}
-                className="w-full rounded-lg bg-black"
-                autoPlay
-                muted
-                playsInline
+            <div>
+              {/* Container pour html5-qrcode */}
+              <div
+                id="qr-scanner-container"
+                ref={scannerContainerRef}
+                className="w-full rounded-lg overflow-hidden"
               />
-              <canvas ref={canvasRef} className="hidden" />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-48 h-48 border-2 border-accent-500 rounded-xl opacity-70" />
-              </div>
-              <p className="text-center text-xs text-gray-500 mt-3">
-                Placez le QR code dans le cadre
-              </p>
-              <p className="text-center text-xs text-gray-400 mt-1">
-                💡 Astuce : le mode manuel fonctionne aussi si la caméra ne détecte pas le code
-              </p>
+              {!scannerReady && (
+                <div className="text-center py-8 text-gray-400">
+                  <div className="animate-pulse">Démarrage de la caméra...</div>
+                </div>
+              )}
+              {scannerReady && (
+                <p className="text-center text-xs text-gray-500 mt-3">
+                  Placez le QR code devant la caméra — la validation est automatique
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -244,7 +280,7 @@ export default function ScannerPage() {
           )}
 
           <button
-            onClick={() => { setResult(null); setManualCode(""); }}
+            onClick={resetResult}
             className="btn-outline w-full mt-4 text-sm"
           >
             Scanner un autre billet

@@ -2,20 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { formatXAF, generateReference } from "@/lib/utils";
 import Link from "next/link";
 
 interface BookingData {
   tripId: string;
+  fromTerminal?: string;
+  toTerminal?: string;
   trip: {
+    from: string;
+    to: string;
     fromName: string;
     toName: string;
     departTime: string;
     date: string;
     price: number;
+    corridorLabel?: string;
   };
   passengers: { fullName: string; phone: string }[];
-  seats: number[];
+  seats: string[];
   totalPrice: number;
 }
 
@@ -25,7 +31,9 @@ export default function PaiementPage() {
   const [method, setMethod] = useState<"mtn" | "airtel">("mtn");
   const [transactionCode, setTransactionCode] = useState("");
   const [phoneSender, setPhoneSender] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const data = sessionStorage.getItem("nzoko_booking");
@@ -51,33 +59,101 @@ export default function PaiementPage() {
     }
 
     setSubmitting(true);
+    setError("");
 
-    // Simuler la création de la réservation
-    // En production, cela ira vers Supabase
     const reference = generateReference();
 
-    const confirmationData = {
-      reference,
-      ...booking,
-      payment: {
-        method,
-        transactionCode,
-        phoneSender,
-        status: "pending",
-      },
-    };
+    try {
+      // ====== SAUVEGARDER DANS SUPABASE ======
+      if (supabase) {
+        // 1. Créer la réservation
+        const { data: bookingRow, error: bookingError } = await supabase
+          .from("bookings")
+          .insert({
+            reference,
+            corridor_id: booking.tripId.split("|")[1] || null,
+            from_city: booking.trip.from,
+            to_city: booking.trip.to,
+            from_terminal: booking.fromTerminal || null,
+            to_terminal: booking.toTerminal || null,
+            date: booking.trip.date,
+            departure_time: booking.trip.departTime,
+            total_price: booking.totalPrice,
+            passenger_count: booking.passengers.length,
+            status: "pending",
+            customer_phone: booking.passengers[0]?.phone || phoneSender,
+            customer_email: customerEmail || null,
+          })
+          .select()
+          .single();
 
-    // Stocker pour la page confirmation
-    sessionStorage.setItem("nzoko_confirmation", JSON.stringify(confirmationData));
-    sessionStorage.removeItem("nzoko_booking");
+        if (bookingError) {
+          console.error("Booking error:", bookingError);
+          setError("Erreur lors de la réservation : " + bookingError.message);
+          setSubmitting(false);
+          return;
+        }
 
-    // Simuler un délai réseau
-    await new Promise((r) => setTimeout(r, 1000));
+        // 2. Ajouter les passagers
+        if (bookingRow) {
+          const passengersData = booking.passengers.map((p, i) => ({
+            booking_id: bookingRow.id,
+            full_name: p.fullName,
+            phone: p.phone || null,
+            seat_number: booking.seats[i] || null,
+            is_primary: i === 0,
+          }));
 
-    router.push("/confirmation");
+          const { error: passError } = await supabase
+            .from("passengers")
+            .insert(passengersData);
+
+          if (passError) {
+            console.error("Passengers error:", passError);
+          }
+
+          // 3. Créer le paiement
+          const { error: payError } = await supabase
+            .from("payments")
+            .insert({
+              booking_id: bookingRow.id,
+              method,
+              amount: booking.totalPrice,
+              transaction_code: transactionCode.trim(),
+              phone_sender: phoneSender.trim(),
+              status: "pending",
+            });
+
+          if (payError) {
+            console.error("Payment error:", payError);
+          }
+        }
+      }
+
+      // Stocker pour la page confirmation (affichage immédiat)
+      const confirmationData = {
+        reference,
+        ...booking,
+        payment: {
+          method,
+          transactionCode,
+          phoneSender,
+          status: "pending",
+        },
+      };
+
+      sessionStorage.setItem("nzoko_confirmation", JSON.stringify(confirmationData));
+      sessionStorage.removeItem("nzoko_booking");
+
+      router.push("/confirmation");
+    } catch (err) {
+      console.error("Submit error:", err);
+      setError("Une erreur est survenue. Veuillez réessayer.");
+      setSubmitting(false);
+    }
   }
 
-  const mtnNumber = "06 XXX XX XX"; // Sera configurable
+  const mtnNumber = "06 XXX XX XX"; // Sera configurable depuis company
   const airtelNumber = "05 XXX XX XX";
 
   return (
@@ -87,6 +163,12 @@ export default function PaiementPage() {
       </Link>
 
       <h1 className="section-title mt-2 mb-6">Paiement Mobile Money</h1>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
+          {error}
+        </div>
+      )}
 
       {/* Étapes */}
       <div className="card mb-6 bg-accent-50 border-accent-200">
@@ -186,6 +268,19 @@ export default function PaiementPage() {
                 className="input-field"
                 placeholder="06 XXX XX XX"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email (pour recevoir votre billet)
+              </label>
+              <input
+                type="email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                className="input-field"
+                placeholder="votre@email.com (optionnel)"
               />
             </div>
           </div>
