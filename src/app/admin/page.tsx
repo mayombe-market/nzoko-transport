@@ -35,6 +35,7 @@ export default function AdminPage() {
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentPhone, setNewAgentPhone] = useState("");
   const [newAgentRole, setNewAgentRole] = useState<"admin" | "agent">("agent");
+  const [newAgentTerminal, setNewAgentTerminal] = useState("");
   const [newAgentPassword, setNewAgentPassword] = useState("");
   const [addingAgent, setAddingAgent] = useState(false);
   const [agentMessage, setAgentMessage] = useState("");
@@ -161,6 +162,7 @@ export default function AdminPage() {
           fullName: newAgentName,
           phone: newAgentPhone,
           role: newAgentRole,
+          terminalId: newAgentTerminal || null,
         }),
       });
 
@@ -337,8 +339,6 @@ export default function AdminPage() {
           </div>
         </Link>
       </div>
-
-      {/* Onglets */}
       <div className="flex gap-1 border-b mb-6 overflow-x-auto">
         {[
           { key: "reservations", label: "🎫 Réservations" },
@@ -490,6 +490,22 @@ export default function AdminPage() {
                   >
                     <option value="agent">Agent (scanner, voir réservations)</option>
                     <option value="admin">Administrateur (accès complet)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Terminus assigné</label>
+                  <select
+                    value={newAgentTerminal}
+                    onChange={(e) => setNewAgentTerminal(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="">Tous (admin uniquement)</option>
+                    <option value="chateau-deau">Château d&apos;eau — Brazzaville</option>
+                    <option value="mpila">Mpila — Brazzaville</option>
+                    <option value="mafouta">Mafouta — Brazzaville</option>
+                    <option value="centre-ville">Centre-ville — Pointe-Noire</option>
+                    <option value="nkouikou">Nkouikou — Pointe-Noire</option>
+                    <option value="ngoyo">Ngoyo — Pointe-Noire</option>
                   </select>
                 </div>
                 <div className="flex items-end">

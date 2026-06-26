@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   corridor_id TEXT REFERENCES corridors(id),
   from_city TEXT REFERENCES cities(id),
   to_city TEXT REFERENCES cities(id),
+  from_terminal TEXT REFERENCES terminals(id), -- Terminus de départ choisi
+  to_terminal TEXT REFERENCES terminals(id),   -- Terminus d'arrivée choisi
   date DATE NOT NULL,
   departure_time TEXT NOT NULL,
   total_price INT NOT NULL,                -- En XAF
@@ -145,6 +147,7 @@ CREATE TABLE IF NOT EXISTS agent_profiles (
   full_name TEXT NOT NULL,
   role TEXT DEFAULT 'agent',               -- 'admin' | 'agent'
   phone TEXT,
+  terminal_id TEXT REFERENCES terminals(id), -- Terminus assigné (NULL = tous pour admin)
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
