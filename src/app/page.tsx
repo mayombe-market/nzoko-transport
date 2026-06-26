@@ -1,4 +1,5 @@
 import { SearchForm } from "@/components/SearchForm";
+import { LogoIcon } from "@/components/Logo";
 
 export default function HomePage() {
   return (
@@ -6,11 +7,9 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-night-dark via-night to-night-light text-white py-16 sm:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
-          {/* Logo elephant placeholder */}
+          {/* Logo elephant */}
           <div className="mb-6 flex justify-center">
-            <div className="w-20 h-20 bg-accent-500 rounded-full flex items-center justify-center shadow-lg">
-              <span className="text-4xl">🐘</span>
-            </div>
+            <LogoIcon className="w-24 h-24 drop-shadow-lg" />
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-black mb-4">

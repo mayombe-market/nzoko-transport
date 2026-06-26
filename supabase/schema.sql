@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS passengers (
   booking_id UUID REFERENCES bookings(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   phone TEXT,
-  seat_number INT,
+  seat_number TEXT,                         -- ex: 'A5', 'C12', 'E20'
   is_primary BOOLEAN DEFAULT false,        -- Passager principal (qui a réservé)
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

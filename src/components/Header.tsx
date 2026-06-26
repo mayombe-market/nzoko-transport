@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { signOut } from "@/lib/auth";
+import { LogoIcon } from "./Logo";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -26,9 +27,7 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent-500 rounded-lg flex items-center justify-center">
-              <span className="text-night font-black text-lg">N</span>
-            </div>
+            <LogoIcon className="w-10 h-10" />
             <div>
               <span className="font-bold text-lg tracking-tight">Nzoko Transport</span>
               <span className="hidden sm:block text-xs text-accent-400">

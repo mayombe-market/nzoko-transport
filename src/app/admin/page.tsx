@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { signOut } from "@/lib/auth";
 import { BusFleetTab } from "@/components/BusFleetTab";
+import { LinesTab } from "@/components/LinesTab";
 import type { User } from "@supabase/supabase-js";
 
 interface AgentProfile {
@@ -346,6 +347,7 @@ export default function AdminPage() {
           { key: "lignes", label: "🛣️ Lignes" },
           ...(profile.role === "admin" ? [{ key: "agents", label: "👥 Agents" }] : []),
           { key: "stats", label: "📊 Statistiques" },
+          ...(profile.role === "admin" ? [{ key: "settings", label: "⚙️ Paramètres" }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
@@ -380,35 +382,7 @@ export default function AdminPage() {
       )}
 
       {activeTab === "lignes" && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-night">Lignes & horaires</h2>
-            {profile.role === "admin" && (
-              <button className="btn-accent text-sm px-4 py-2">+ Nouvelle ligne</button>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {[
-              { route: "RN1 — Brazzaville ↔ Pointe-Noire", services: 3, times: "05:30 – 21:00" },
-              { route: "RN2 — Brazzaville ↔ Ouesso", services: 2, times: "05:00 – 19:30" },
-              { route: "Axe des Plateaux — Brazzaville ↔ Djambala", services: 1, times: "07:00 – 13:30" },
-              { route: "Axe Niari — Pointe-Noire ↔ Sibiti", services: 1, times: "08:00 – 15:00" },
-            ].map((line) => (
-              <div key={line.route} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-night">{line.route}</p>
-                  <p className="text-xs text-gray-500">{line.services} service(s) • Horaires : {line.times}</p>
-                </div>
-                {profile.role === "admin" && (
-                  <button className="text-sm text-night hover:text-accent-700 font-medium">
-                    Modifier →
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <LinesTab isAdmin={profile.role === "admin"} />
       )}
 
       {/* Onglet Agents — admin uniquement */}
@@ -589,6 +563,19 @@ export default function AdminPage() {
           <p className="text-gray-500">
             Les statistiques (revenus, taux d&apos;occupation, trajets populaires) seront disponibles prochainement.
           </p>
+        </div>
+      )}
+
+      {activeTab === "settings" && profile.role === "admin" && (
+        <div className="card text-center py-8">
+          <div className="text-4xl mb-2">⚙️</div>
+          <h2 className="font-bold text-night mb-2">Paramètres</h2>
+          <p className="text-gray-500 mb-4">
+            Configurez les numéros Mobile Money, le nom de l&apos;entreprise, et les coordonnées.
+          </p>
+          <Link href="/admin/settings" className="btn-primary inline-block">
+            Ouvrir les paramètres →
+          </Link>
         </div>
       )}
     </div>

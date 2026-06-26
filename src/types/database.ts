@@ -121,7 +121,7 @@ export interface Database {
           booking_id: string;
           full_name: string;
           phone: string | null;
-          seat_number: number | null;
+          seat_number: string | null;
           is_primary: boolean;
           created_at: string;
         };

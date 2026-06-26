@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useCompany } from "@/lib/company";
 import { formatXAF, generateReference } from "@/lib/utils";
 import Link from "next/link";
 
@@ -34,6 +35,7 @@ export default function PaiementPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const company = useCompany();
 
   useEffect(() => {
     const data = sessionStorage.getItem("nzoko_booking");
@@ -153,8 +155,8 @@ export default function PaiementPage() {
     }
   }
 
-  const mtnNumber = "06 XXX XX XX"; // Sera configurable depuis company
-  const airtelNumber = "05 XXX XX XX";
+  const mtnNumber = company.phone_mtn;
+  const airtelNumber = company.phone_airtel;
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
