@@ -144,8 +144,20 @@ export function searchTrips(fromId: string, toId: string, date: string): TripRes
   for (const service of SERVICES) {
     const corridor = CORRIDORS[service.corridor];
     const stops = corridor.stops;
-    const fromIdx = stops.findIndex((s) => s.city === fromId);
-    const toIdx = stops.findIndex((s) => s.city === toId);
+    let fromIdx = stops.findIndex((s) => s.city === fromId);
+    let toIdx = stops.findIndex((s) => s.city === toId);
+
+    // Si les deux villes sont sur ce corridor mais dans l'autre sens,
+    // on inverse pour permettre le trajet retour
+    let reversed = false;
+    if (fromIdx !== -1 && toIdx !== -1 && fromIdx > toIdx) {
+      // Trajet en sens inverse
+      const temp = fromIdx;
+      fromIdx = toIdx;
+      toIdx = temp;
+      reversed = true;
+    }
+
     if (fromIdx === -1 || toIdx === -1 || fromIdx >= toIdx) continue;
 
     const price = stops[toIdx].price - stops[fromIdx].price;
@@ -153,8 +165,8 @@ export function searchTrips(fromId: string, toId: string, date: string): TripRes
     const capacity = busCapacity(service.bus.seatsPerRow, service.bus.rows - 1, service.bus.backRow);
 
     for (const t of service.times) {
-      const boarding = addMinutes(t, stops[fromIdx].offset);
-      const arrival = addMinutes(t, stops[toIdx].offset);
+      const boarding = addMinutes(t, stops[reversed ? toIdx : fromIdx].offset);
+      const arrival = addMinutes(t, stops[reversed ? fromIdx : toIdx].offset);
 
       const tripId = `${service.id}|${service.corridor}|${fromId}|${toId}|${date}|${t}`;
 
