@@ -9,6 +9,7 @@ import { BusFleetTab } from "@/components/BusFleetTab";
 import { LinesTab } from "@/components/LinesTab";
 import type { User } from "@supabase/supabase-js";
 import { LogoIcon } from "@/components/Logo";
+import { RevenueSummary } from "@/components/RevenueSummary";
 
 interface AgentProfile {
   id: string;
@@ -343,6 +344,22 @@ export default function AdminPage() {
           </div>
         </Link>
       </div>
+      <div className="grid sm:grid-cols-2 gap-3 mb-6">
+        <Link href="/admin/colis" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-accent-500">
+          <span className="text-3xl">📦</span>
+          <span>
+            <span className="block font-bold text-night">Colis</span>
+            <span className="text-xs text-gray-500">Dépôt, affectation, chargement, réception, retrait</span>
+          </span>
+        </Link>
+        <Link href="/admin/colis/departs" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-night">
+          <span className="text-3xl">🚌</span>
+          <span>
+            <span className="block font-bold text-night">Départs du jour</span>
+            <span className="text-xs text-gray-500">Passagers, colis et manifeste par bus</span>
+          </span>
+        </Link>
+      </div>
       <div className="flex gap-1 border-b mb-6 overflow-x-auto">
         {[
           { key: "reservations", label: "🎫 Réservations" },
@@ -560,13 +577,11 @@ export default function AdminPage() {
       )}
 
       {activeTab === "stats" && (
-        <div className="card text-center py-8">
-          <div className="text-4xl mb-2">📊</div>
-          <h2 className="font-bold text-night mb-2">Statistiques</h2>
-          <p className="text-gray-500">
-            Les statistiques (revenus, taux d&apos;occupation, trajets populaires) seront disponibles prochainement.
-          </p>
-        </div>
+        profile.role === "admin" ? (
+          <RevenueSummary />
+        ) : (
+          <div className="card text-center py-8 text-gray-500">Les revenus sont réservés aux administrateurs.</div>
+        )
       )}
 
       {activeTab === "settings" && profile.role === "admin" && (

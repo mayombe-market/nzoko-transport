@@ -38,6 +38,9 @@ export function Header() {
             <Link href="/mes-reservations" className="hover:text-accent-400 transition-colors">
               Mes réservations
             </Link>
+            <Link href="/suivi-colis" className="hover:text-accent-400 transition-colors">
+              Suivre un colis
+            </Link>
             {user ? (
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-300">
@@ -103,6 +106,13 @@ export function Header() {
               onClick={() => setMenuOpen(false)}
             >
               Mes réservations
+            </Link>
+            <Link
+              href="/suivi-colis"
+              className="block py-2 hover:text-accent-400 transition-colors"
+              onClick={() => setMenuOpen(false)}
+            >
+              Suivre un colis
             </Link>
             <Link
               href="/admin"
