@@ -1,11 +1,19 @@
 -- ============================================================
 -- Nzoko Transport — Migration de sécurité (2 octobre 2026)
--- Empêche toute lecture anonyme de bookings, passengers, payments
--- et agent_profiles, sans casser le parcours public de réservation.
+-- Constat de l'audit : la RLS était DÉSACTIVÉE sur les 12 tables publiques
+-- (les politiques existaient mais ne s'appliquaient pas) et les rôles anon /
+-- authenticated avaient tous les droits, y compris DELETE et TRUNCATE.
+--
+-- Cette migration :
+--  - active la RLS sur toutes les tables ;
+--  - empêche toute lecture anonyme de bookings, passengers, payments, agent_profiles ;
+--  - garde le parcours public de réservation (insertion « en attente » uniquement) ;
+--  - garde la lecture publique des données de référence, écriture admin uniquement ;
+--  - retire TRUNCATE / TRIGGER / REFERENCES aux rôles anon et authenticated.
 --
 -- AUCUNE donnée n'est supprimée ni modifiée : seules les règles
 -- d'accès (RLS) et les droits du rôle `anon` changent.
--- Retour arrière : recréer les politiques sauvegardées avant migration.
+-- Retour arrière : supabase/audit/sauvegarde-avant-migration-2026-10-02.md
 -- ============================================================
 
 begin;
@@ -80,7 +88,7 @@ as $$
 $$;
 
 -- ------------------------------------------------------------
--- 2. Retirer TOUTES les politiques existantes sur les 4 tables
+-- 2. Retirer TOUTES les politiques existantes des tables publiques
 --    (leurs définitions sont sauvegardées avant exécution)
 -- ------------------------------------------------------------
 do $$
@@ -90,7 +98,9 @@ begin
     select schemaname, tablename, policyname
     from pg_policies
     where schemaname = 'public'
-      and tablename in ('bookings', 'passengers', 'payments', 'agent_profiles')
+      and tablename in ('bookings', 'passengers', 'payments', 'agent_profiles',
+                        'company', 'cities', 'terminals', 'corridors', 'corridor_stops',
+                        'buses', 'services', 'trips')
   loop
     execute format('drop policy %I on %I.%I', pol.policyname, pol.schemaname, pol.tablename);
   end loop;
@@ -100,6 +110,14 @@ alter table public.bookings       enable row level security;
 alter table public.passengers     enable row level security;
 alter table public.payments       enable row level security;
 alter table public.agent_profiles enable row level security;
+alter table public.company        enable row level security;
+alter table public.cities         enable row level security;
+alter table public.terminals      enable row level security;
+alter table public.corridors      enable row level security;
+alter table public.corridor_stops enable row level security;
+alter table public.buses          enable row level security;
+alter table public.services       enable row level security;
+alter table public.trips          enable row level security;
 
 -- ------------------------------------------------------------
 -- 3. Droits du rôle anon : écriture limitée, AUCUNE lecture
@@ -110,6 +128,19 @@ revoke select, update, delete, truncate, references, trigger on public.passenger
 revoke select, update, delete, truncate, references, trigger on public.payments   from anon;
 revoke all on public.agent_profiles from anon;
 grant insert on public.bookings, public.passengers, public.payments to anon;
+
+-- Données de référence : lecture publique, aucune écriture anonyme
+revoke insert, update, delete, truncate, references, trigger
+  on public.company, public.cities, public.terminals, public.corridors, public.corridor_stops,
+     public.buses, public.services, public.trips
+  from anon;
+
+-- TRUNCATE (vidage de table) n'est pas filtré par la RLS : retiré à tous les rôles publics
+revoke truncate, references, trigger
+  on public.bookings, public.passengers, public.payments, public.agent_profiles,
+     public.company, public.cities, public.terminals, public.corridors, public.corridor_stops,
+     public.buses, public.services, public.trips
+  from anon, authenticated;
 
 -- ------------------------------------------------------------
 -- 4. bookings
@@ -189,5 +220,54 @@ create policy "admin_modifie_profils" on public.agent_profiles
 
 -- La création de comptes passe uniquement par /api/create-agent (clé serveur).
 -- Aucune politique INSERT / DELETE pour les navigateurs.
+
+-- ------------------------------------------------------------
+-- 8. Données de référence (recherche, plan de bus, paramètres)
+-- ------------------------------------------------------------
+create policy "public_lit_entreprise" on public.company
+  for select to anon, authenticated using (true);
+create policy "admin_gere_entreprise" on public.company
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_villes_actives" on public.cities
+  for select to anon, authenticated using (is_active = true);
+create policy "admin_gere_villes" on public.cities
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_terminus_actifs" on public.terminals
+  for select to anon, authenticated using (is_active = true);
+create policy "admin_gere_terminus" on public.terminals
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_axes_actifs" on public.corridors
+  for select to anon, authenticated using (is_active = true);
+create policy "agents_lisent_axes" on public.corridors
+  for select to authenticated using (public.is_active_agent());
+create policy "admin_gere_axes" on public.corridors
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_arrets" on public.corridor_stops
+  for select to anon, authenticated using (true);
+create policy "admin_gere_arrets" on public.corridor_stops
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_bus_actifs" on public.buses
+  for select to anon, authenticated using (is_active = true);
+create policy "agents_lisent_tous_les_bus" on public.buses
+  for select to authenticated using (public.is_active_agent());
+create policy "admin_gere_bus" on public.buses
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_lignes_actives" on public.services
+  for select to anon, authenticated using (is_active = true);
+create policy "agents_lisent_toutes_les_lignes" on public.services
+  for select to authenticated using (public.is_active_agent());
+create policy "admin_gere_lignes" on public.services
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
+
+create policy "public_lit_departs" on public.trips
+  for select to anon, authenticated using (true);
+create policy "admin_gere_departs" on public.trips
+  for all to authenticated using (public.is_active_admin()) with check (public.is_active_admin());
 
 commit;
