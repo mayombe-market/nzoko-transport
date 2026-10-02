@@ -34,13 +34,17 @@ export async function POST(req: NextRequest) {
       }
       const { data } = await supabase
         .from("bookings")
-        .select(PUBLIC_BOOKING_SELECT)
+        .select(`${PUBLIC_BOOKING_SELECT}, access_key`)
         .eq("customer_phone", phone)
         .order("created_at", { ascending: false })
         .limit(20);
+      // Le numéro du client sert de preuve : on renvoie le lien d'accès à chaque billet
       return NextResponse.json({
         success: true,
-        bookings: (data ?? []).map((row) => toPublicBooking(row, { maskNames: true })),
+        bookings: (data ?? []).map((row: any) => ({
+          ...toPublicBooking(row, { maskNames: true }),
+          access_key: row.access_key ?? null,
+        })),
       });
     }
 

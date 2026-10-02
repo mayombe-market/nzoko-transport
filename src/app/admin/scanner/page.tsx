@@ -15,7 +15,7 @@ interface ValidationResult {
     to: string;
     date: string;
     departureTime: string;
-    scanCount: number;
+    usedAt?: string | null;
   };
 }
 
@@ -113,7 +113,7 @@ export default function ScannerPage() {
 
     try {
       const response = await authFetch("/api/validate-ticket", {
-        reference: reference.trim().toUpperCase(),
+        code: reference.trim(),
       });
 
       const data = await response.json();
@@ -213,14 +213,14 @@ export default function ScannerPage() {
       {/* Mode Manuel */}
       {mode === "manual" && (
         <div className="card mb-6">
-          <h3 className="font-bold text-night mb-3">Entrez la référence du billet</h3>
+          <h3 className="font-bold text-night mb-3">Entrez le code du billet (sous le QR)</h3>
           <form onSubmit={handleManualSubmit} className="flex gap-3">
             <input
               type="text"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
               className="input-field flex-1 font-mono uppercase tracking-wider"
-              placeholder="NZK-260624-A3F2"
+              placeholder="9F3A-1B2C-4D5E-6F70-8192"
               required
             />
             <button
@@ -249,7 +249,7 @@ export default function ScannerPage() {
             </p>
           </div>
 
-          {result.success && result.booking && (
+          {result.booking && (
             <div className="mt-4 pt-4 border-t border-green-200 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Passager</span>
@@ -272,9 +272,15 @@ export default function ScannerPage() {
                 <span className="font-semibold">{result.booking.departureTime}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Scan</span>
-                <span className="font-semibold">{result.booking.scanCount}/3</span>
+                <span className="text-gray-600">Référence</span>
+                <span className="font-semibold font-mono">{result.booking.reference}</span>
               </div>
+              {result.booking.usedAt && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Validé le</span>
+                  <span className="font-semibold">{new Date(result.booking.usedAt).toLocaleString("fr-FR")}</span>
+                </div>
+              )}
             </div>
           )}
 

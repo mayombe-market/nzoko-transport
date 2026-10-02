@@ -84,51 +84,38 @@ export default function TerminalDashboard() {
     setLoading(false);
   }
 
+  // Confirmation : paiement + réservation + billets QR dans une seule transaction (serveur)
   async function confirmBooking(bookingId: string) {
-    if (!supabase) return;
-
-    // 1. Confirmer la réservation
     setConfirmMessage("⏳ Confirmation en cours...");
-    await supabase
-      .from("bookings")
-      .update({ status: "confirmed" })
-      .eq("id", bookingId);
-
-    // 2. Récupérer les infos complètes pour l'email
-    const { data: bookingData } = await supabase
-      .from("bookings")
-      .select("*, passengers(*)")
-      .eq("id", bookingId)
-      .single();
-
-    // 3. Envoyer le billet par email si le client a un email
-    if (bookingData && bookingData.customer_email) {
-      try {
-        const res = await authFetch("/api/send-ticket", { reference: bookingData.reference });
-        const sent = await res.json();
-        if (!sent.success) throw new Error(sent.message);
-        setConfirmMessage(`✅ Réservation confirmée ! Email envoyé à ${bookingData.customer_email}`);
-      } catch (err) {
-        console.error("Email send error:", err);
-        setConfirmMessage("✅ Réservation confirmée ! (email non envoyé)");
+    try {
+      const res = await authFetch(`/api/admin/bookings/${bookingId}/confirm`, {});
+      const json = await res.json();
+      if (!json.success) {
+        setConfirmMessage(`❌ ${json.message}`);
+      } else {
+        const email = json.email?.sent ? " Billet envoyé par email." : json.email?.reason ? ` (email non envoyé : ${json.email.reason})` : "";
+        setConfirmMessage(`✅ Paiement confirmé — ${json.tickets} billet(s) QR créé(s).${email}`);
       }
-    } else {
-      setConfirmMessage("✅ Réservation confirmée !");
+    } catch {
+      setConfirmMessage("❌ Erreur de connexion.");
     }
-
-    // Masquer le message après 5 secondes
-    setTimeout(() => setConfirmMessage(""), 5000);
-
+    setTimeout(() => setConfirmMessage(""), 6000);
     loadBookings();
   }
 
-  async function cancelBooking(bookingId: string) {
-    if (!confirm("Annuler cette réservation ?")) return;
-    if (!supabase) return;
-    await supabase
-      .from("bookings")
-      .update({ status: "cancelled" })
-      .eq("id", bookingId);
+  // Refus du paiement (non reçu) ou annulation : sièges libérés, billets annulés
+  async function cancelBooking(bookingId: string, status: string) {
+    const isPending = status === "pending";
+    const reason = prompt(isPending ? "Motif du refus du paiement :" : "Motif de l'annulation :", isPending ? "Paiement non reçu" : "");
+    if (reason === null) return;
+    try {
+      const res = await authFetch(`/api/admin/bookings/${bookingId}/${isPending ? "reject" : "cancel"}`, { reason });
+      const json = await res.json();
+      setConfirmMessage(json.success ? "✅ Réservation annulée, sièges libérés." : `❌ ${json.message}`);
+    } catch {
+      setConfirmMessage("❌ Erreur de connexion.");
+    }
+    setTimeout(() => setConfirmMessage(""), 6000);
     loadBookings();
   }
 
@@ -274,7 +261,7 @@ export default function TerminalDashboard() {
                           ✅ Confirmer
                         </button>
                         <button
-                          onClick={() => cancelBooking(booking.id)}
+                          onClick={() => cancelBooking(booking.id, booking.status)}
                           className="px-3 py-2 text-sm rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
                         >
                           ❌

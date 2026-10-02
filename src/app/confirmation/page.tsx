@@ -1,40 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
+import { formatXAF } from "@/lib/utils";
 import { LogoIcon } from "@/components/Logo";
 
 interface ConfirmationData {
   reference: string;
-  trip: {
-    fromName: string;
-    toName: string;
-    departTime: string;
-    date: string;
-    price: number;
-  };
-  passengers: { fullName: string; phone: string }[];
-  seats: number[];
+  accessKey: string;
   totalPrice: number;
-  payment: {
-    method: string;
-    transactionCode: string;
-    phoneSender: string;
-    status: string;
-  };
+  seats: string[];
+  passengers: { fullName: string; phone: string }[];
+  trip: { fromName: string; toName: string; date: string; departTime: string; busName: string } | null;
+  payment: { method: string; transactionCode: string; status: string };
 }
 
 export default function ConfirmationPage() {
-  const [data, setData] = useState<ConfirmationData | null>(null);
+  const [data, setData] = useState<ConfirmationData | null | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("nzoko_confirmation");
-    if (stored) {
-      setData(JSON.parse(stored));
+    try {
+      const stored = sessionStorage.getItem("nzoko_confirmation");
+      setData(stored ? JSON.parse(stored) : null);
+    } catch {
+      setData(null);
     }
   }, []);
 
+  if (data === undefined) return <div className="text-center py-12 text-gray-400">Chargement...</div>;
   if (!data) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
@@ -44,46 +38,41 @@ export default function ConfirmationPage() {
     );
   }
 
+  const ticketPath = `/billet/${encodeURIComponent(data.reference)}?k=${encodeURIComponent(data.accessKey)}`;
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${ticketPath}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {}
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      {/* Succès */}
       <div className="text-center mb-8">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-4xl">✅</span>
+        <div className="text-5xl mb-3">✅</div>
+        <h1 className="font-display text-2xl font-semibold text-night mb-2">Réservation enregistrée</h1>
+        <p className="text-gray-600">Votre paiement est en cours de vérification par un agent Nzoko.</p>
+        <p className="text-gray-600 text-sm mt-1">
+          Dès qu&apos;il est confirmé, votre billet avec son QR code sécurisé est disponible avec le lien ci-dessous.
+        </p>
+      </div>
+
+      {/* Lien privé du billet */}
+      <div className="card mb-6 border-2 border-accent-500 text-center">
+        <p className="text-sm text-gray-600 mb-3">Gardez ce lien : c&apos;est l&apos;accès à votre billet.</p>
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <Link href={ticketPath} className="btn-accent inline-block">📄 Voir mon billet</Link>
+          <button onClick={copyLink} className="btn-outline text-sm">{copied ? "Lien copié ✓" : "Copier le lien"}</button>
         </div>
-        <h1 className="text-2xl font-black text-night mb-2">Réservation enregistrée !</h1>
-        <p className="text-gray-600">
-          Votre paiement est en cours de vérification par un agent.
+        <p className="text-xs text-gray-400 mt-3">
+          Vous pouvez aussi retrouver votre billet dans « Mes réservations » avec votre numéro de téléphone.
         </p>
-        {data.payment.status === "pending" && (
-          <p className="text-sm text-amber-600 mt-2">
-            Une fois confirmé, vous recevrez votre billet par email avec le QR code.
-          </p>
-        )}
       </div>
 
-      {/* QR Code du billet */}
-      <div className="card text-center mb-6">
-        <p className="text-sm text-gray-600 mb-3">Votre QR code de validation :</p>
-        <img
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.reference)}`}
-          alt="QR Code"
-          className="w-48 h-48 mx-auto border border-gray-200 rounded-lg p-2"
-        />
-        <p className="font-mono font-bold text-night mt-3">{data.reference}</p>
-        <p className="text-xs text-gray-500 mt-2">
-          Présentez ce QR code à l&apos;agent avant de monter dans le bus.
-        </p>
-        <Link
-          href={`/billet/${data.reference}`}
-          className="btn-primary inline-block mt-4 text-sm"
-        >
-          📄 Voir mon billet complet
-        </Link>
-      </div>
-
-      {/* Billet */}
-      <div className="card border-2 border-accent-500">
+      {/* Récapitulatif */}
+      <div className="card">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-night rounded-lg flex items-center justify-center">
@@ -97,73 +86,58 @@ export default function ConfirmationPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <p className="text-xs text-gray-500">Départ</p>
-            <p className="font-bold text-night">{data.trip.fromName}</p>
-            <p className="text-sm text-gray-600">{data.trip.departTime}</p>
+        {data.trip && (
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <p className="text-xs text-gray-500">Départ</p>
+              <p className="font-bold text-night">{data.trip.fromName}</p>
+              <p className="text-sm text-gray-600">{data.trip.departTime}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Arrivée</p>
+              <p className="font-bold text-night">{data.trip.toName}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Date</p>
+              <p className="font-medium">
+                {new Date(data.trip.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Places</p>
+              <p className="font-bold text-night">{data.seats.join(", ")}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-gray-500">Arrivée</p>
-            <p className="font-bold text-night">{data.trip.toName}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Date</p>
-            <p className="text-sm font-medium">
-              {new Date(data.trip.date + "T00:00:00").toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500">Places</p>
-            <p className="text-sm font-medium">{data.seats.join(", ")}</p>
-          </div>
-        </div>
+        )}
 
-        {/* Passagers */}
-        <div className="mb-4 pt-4 border-t">
+        <div className="border-t pt-4 mb-4">
           <p className="text-xs text-gray-500 mb-2">Passagers</p>
           {data.passengers.map((p, i) => (
             <p key={i} className="text-sm">
-              {p.fullName} {p.phone && `(${p.phone})`} — Siège {data.seats[i]}
+              {p.fullName} — Siège {data.seats[i]}
             </p>
           ))}
         </div>
 
-        {/* Total */}
-        <div className="flex items-center justify-between pt-4 border-t border-dashed">
+        <div className="border-t pt-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-500">Paiement {data.payment.method.toUpperCase()}</p>
-            <p className="text-xs text-gray-400 font-mono">{data.payment.transactionCode}</p>
+            <p className="text-xs text-gray-500">Paiement {data.payment.method === "mtn" ? "MTN MoMo" : "Airtel Money"}</p>
+            <p className="font-mono text-sm">{data.payment.transactionCode}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-gray-500">Total payé</p>
+            <p className="text-xs text-gray-500">Montant</p>
             <p className="text-2xl font-black text-accent-700">{formatXAF(data.totalPrice)}</p>
           </div>
         </div>
 
-        {/* Statut */}
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-          <p className="text-sm font-semibold text-yellow-800">
-            ⏳ En attente de confirmation par un agent
-          </p>
-          <p className="text-xs text-yellow-600 mt-1">
-            Vous recevrez un SMS de confirmation une fois le paiement vérifié.
-          </p>
+        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center text-sm text-yellow-800">
+          ⏳ En attente de confirmation par un agent
         </div>
       </div>
 
-      <div className="text-center mt-8 space-x-4">
-        <Link href="/" className="btn-primary inline-block">
-          Retour à l&apos;accueil
-        </Link>
-        <Link href="/mes-reservations" className="btn-outline inline-block">
-          Mes réservations
-        </Link>
+      <div className="flex gap-3 justify-center mt-6">
+        <Link href="/" className="btn-outline">Retour à l&apos;accueil</Link>
+        <Link href="/mes-reservations" className="btn-primary">Mes réservations</Link>
       </div>
     </div>
   );

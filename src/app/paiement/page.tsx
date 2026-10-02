@@ -2,33 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { useCompany } from "@/lib/company";
-import { formatXAF, generateReference } from "@/lib/utils";
 import Link from "next/link";
+import { useCompany } from "@/lib/company";
+import { formatXAF } from "@/lib/utils";
+import { HoldTimer } from "@/components/HoldTimer";
+import { seatIsPremium, type BusLayoutConfig } from "@/lib/seat-layout";
+import { getHoldToken, loadDraft, clearDraft, type BookingDraft } from "@/lib/booking-session";
 
-interface BookingData {
-  tripId: string;
-  fromTerminal?: string;
-  toTerminal?: string;
-  trip: {
-    from: string;
-    to: string;
-    fromName: string;
-    toName: string;
-    departTime: string;
-    date: string;
-    price: number;
-    corridorLabel?: string;
-  };
-  passengers: { fullName: string; phone: string }[];
-  seats: string[];
-  totalPrice: number;
+interface TripSummary {
+  fromName: string;
+  toName: string;
+  departDate: string;
+  departTime: string;
+  price: number;
+  premiumSupplement: number;
+  bus: BusLayoutConfig & { name: string };
 }
 
 export default function PaiementPage() {
   const router = useRouter();
-  const [booking, setBooking] = useState<BookingData | null>(null);
+  const [draft, setDraft] = useState<BookingDraft | null | undefined>(undefined);
+  const [trip, setTrip] = useState<TripSummary | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [method, setMethod] = useState<"mtn" | "airtel">("mtn");
   const [transactionCode, setTransactionCode] = useState("");
   const [phoneSender, setPhoneSender] = useState("");
@@ -38,13 +33,28 @@ export default function PaiementPage() {
   const company = useCompany();
 
   useEffect(() => {
-    const data = sessionStorage.getItem("nzoko_booking");
-    if (data) {
-      setBooking(JSON.parse(data));
-    }
+    const d = loadDraft();
+    setDraft(d);
+    if (!d || !d.passengers) return;
+    setPhoneSender(d.passengers[0]?.phone || "");
+    fetch(`/api/trips/${d.tripId}?from=${d.from}&to=${d.to}`)
+      .then((r) => r.json())
+      .then((json) => json.success && setTrip(json.trip));
+    // Renouvelle le blocage des sièges (15 min) le temps du paiement
+    fetch(`/api/trips/${d.tripId}/hold`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seats: d.seats, token: getHoldToken() }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setExpiresAt(json.expiresAt);
+        else setError(json.message || "Vos sièges ne sont plus disponibles. Revenez au plan du bus.");
+      });
   }, []);
 
-  if (!booking) {
+  if (draft === undefined) return <div className="text-center py-12 text-gray-400">Chargement...</div>;
+  if (!draft || !draft.passengers) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
         <h1 className="section-title mb-4">Aucune réservation en cours</h1>
@@ -53,102 +63,59 @@ export default function PaiementPage() {
     );
   }
 
+  // Montant indicatif ; le montant officiel est recalculé par le serveur à l'enregistrement
+  const premiumCount = trip ? draft.seats.filter((s) => seatIsPremium(trip.bus, s)).length : 0;
+  const amount = trip ? draft.seats.length * trip.price + premiumCount * trip.premiumSupplement : 0;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!draft?.passengers) return;
     if (!transactionCode.trim() || !phoneSender.trim()) {
-      alert("Veuillez remplir tous les champs.");
+      setError("Veuillez remplir le code de transaction et le numéro d'envoi.");
       return;
     }
-
     setSubmitting(true);
     setError("");
 
-    const reference = generateReference();
-
     try {
-      // ====== SAUVEGARDER DANS SUPABASE ======
-      if (supabase) {
-        // 1. Créer la réservation
-        // L'identifiant est généré ici : le visiteur peut créer sa réservation
-        // mais n'a pas le droit de la relire dans la base (protection des données).
-        const bookingId = crypto.randomUUID();
-        const { error: bookingError } = await supabase
-          .from("bookings")
-          .insert({
-            id: bookingId,
-            reference,
-            corridor_id: booking.tripId.split("|")[1] || null,
-            from_city: booking.trip.from,
-            to_city: booking.trip.to,
-            from_terminal: booking.fromTerminal || null,
-            to_terminal: booking.toTerminal || null,
-            date: booking.trip.date,
-            departure_time: booking.trip.departTime,
-            total_price: booking.totalPrice,
-            passenger_count: booking.passengers.length,
-            status: "pending",
-            customer_phone: booking.passengers[0]?.phone || phoneSender,
-            customer_email: customerEmail || null,
-          });
-
-        if (bookingError) {
-          console.error("Booking error:", bookingError);
-          setError("Erreur lors de la réservation : " + bookingError.message);
-          setSubmitting(false);
-          return;
-        }
-
-        // 2. Ajouter les passagers
-        {
-          const passengersData = booking.passengers.map((p, i) => ({
-            booking_id: bookingId,
-            full_name: p.fullName,
-            phone: p.phone || null,
-            seat_number: booking.seats[i] || null,
-            is_primary: i === 0,
-          }));
-
-          const { error: passError } = await supabase
-            .from("passengers")
-            .insert(passengersData);
-
-          if (passError) {
-            console.error("Passengers error:", passError);
-          }
-
-          // 3. Créer le paiement
-          const { error: payError } = await supabase
-            .from("payments")
-            .insert({
-              booking_id: bookingId,
-              method,
-              amount: booking.totalPrice,
-              transaction_code: transactionCode.trim(),
-              phone_sender: phoneSender.trim(),
-              status: "pending",
-            });
-
-          if (payError) {
-            console.error("Payment error:", payError);
-          }
-        }
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tripId: draft.tripId,
+          from: draft.from,
+          to: draft.to,
+          fromTerminal: draft.fromTerminal,
+          toTerminal: draft.toTerminal,
+          token: getHoldToken(),
+          passengers: draft.passengers.map((p, i) => ({ ...p, seat: draft.seats[i] })),
+          customerPhone: draft.passengers[0]?.phone || phoneSender,
+          customerEmail: customerEmail.trim() || null,
+          method,
+          transactionCode: transactionCode.trim(),
+          phoneSender: phoneSender.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.message || "Erreur lors de l'enregistrement.");
+        setSubmitting(false);
+        return;
       }
 
-      // Stocker pour la page confirmation (affichage immédiat)
-      const confirmationData = {
-        reference,
-        ...booking,
-        payment: {
-          method,
-          transactionCode,
-          phoneSender,
-          status: "pending",
-        },
-      };
-
-      sessionStorage.setItem("nzoko_confirmation", JSON.stringify(confirmationData));
-      sessionStorage.removeItem("nzoko_booking");
-
+      sessionStorage.setItem(
+        "nzoko_confirmation",
+        JSON.stringify({
+          reference: json.reference,
+          accessKey: json.accessKey,
+          totalPrice: json.totalPrice,
+          seats: draft.seats,
+          passengers: draft.passengers,
+          trip: trip && { fromName: trip.fromName, toName: trip.toName, date: trip.departDate, departTime: trip.departTime, busName: trip.bus.name },
+          payment: { method, transactionCode: transactionCode.trim(), status: "pending" },
+        })
+      );
+      clearDraft();
       router.push("/confirmation");
     } catch (err) {
       console.error("Submit error:", err);
@@ -162,11 +129,14 @@ export default function PaiementPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <Link href="javascript:history.back()" className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
+      <button onClick={() => router.back()} className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
         ← Retour
-      </Link>
+      </button>
 
-      <h1 className="section-title mt-2 mb-6">Paiement Mobile Money</h1>
+      <h1 className="section-title mt-2 mb-4">Paiement Mobile Money</h1>
+      <div className="mb-6">
+        <HoldTimer expiresAt={expiresAt} />
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
@@ -185,7 +155,7 @@ export default function PaiementPage() {
           <li className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-night text-white rounded-full flex items-center justify-center text-xs font-bold">2</span>
             <span>
-              Envoyez <strong className="text-accent-700">{formatXAF(booking.totalPrice)}</strong> au numéro indiqué
+              Envoyez <strong className="text-accent-700">{formatXAF(amount)}</strong> au numéro indiqué
             </span>
           </li>
           <li className="flex gap-3">
@@ -236,9 +206,9 @@ export default function PaiementPage() {
         {/* Montant à envoyer */}
         <div className="card bg-night text-white text-center">
           <p className="text-sm text-gray-300 mb-1">Montant à envoyer</p>
-          <p className="text-3xl font-black text-accent-500">{formatXAF(booking.totalPrice)}</p>
+          <p className="text-3xl font-black text-accent-500">{formatXAF(amount)}</p>
           <p className="text-sm text-gray-300 mt-2">
-            Au numéro : <strong>{method === "mtn" ? mtnNumber : airtelNumber}</strong>
+            Au numéro : <strong>{(method === "mtn" ? mtnNumber : airtelNumber) || "numéro communiqué en agence"}</strong>
           </p>
         </div>
 

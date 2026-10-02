@@ -1,37 +1,51 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { useState, Suspense } from "react";
-import { getTripById } from "@/lib/trips";
-import { formatXAF } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
+import { formatXAF } from "@/lib/utils";
+import { HoldTimer } from "@/components/HoldTimer";
+import { seatIsPremium, type BusLayoutConfig } from "@/lib/seat-layout";
+import { loadDraft, saveDraft, type BookingDraft } from "@/lib/booking-session";
 
 interface PassengerInfo {
   fullName: string;
   phone: string;
 }
 
+interface TripSummary {
+  fromName: string;
+  toName: string;
+  departDate: string;
+  departTime: string;
+  price: number;
+  premiumSupplement: number;
+  bus: BusLayoutConfig & { name: string };
+}
+
 function PassengersContent() {
-  const params = useSearchParams();
   const router = useRouter();
-  const tripId = params.get("tripId") || "";
-  const passengers = Number(params.get("passengers") || "1");
-  const seats = (params.get("seats") || "").split(",");
-  const totalPrice = Number(params.get("totalPrice") || "0");
-  const fromTerminal = params.get("fromTerminal") || "";
-  const toTerminal = params.get("toTerminal") || "";
+  const [draft, setDraft] = useState<BookingDraft | null | undefined>(undefined);
+  const [trip, setTrip] = useState<TripSummary | null>(null);
+  const [passengerList, setPassengerList] = useState<PassengerInfo[]>([]);
+  const [error, setError] = useState("");
 
-  const trip = getTripById(tripId);
+  useEffect(() => {
+    const d = loadDraft();
+    setDraft(d);
+    if (!d) return;
+    setPassengerList(d.seats.map((_, i) => d.passengers?.[i] ?? { fullName: "", phone: "" }));
+    fetch(`/api/trips/${d.tripId}?from=${d.from}&to=${d.to}`)
+      .then((r) => r.json())
+      .then((json) => json.success && setTrip(json.trip));
+  }, []);
 
-  const [passengerList, setPassengerList] = useState<PassengerInfo[]>(
-    Array.from({ length: passengers }, () => ({ fullName: "", phone: "" }))
-  );
-
-  if (!trip) {
+  if (draft === undefined) return <div className="text-center py-12 text-gray-400">Chargement...</div>;
+  if (!draft || draft.seats.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <h1 className="section-title mb-4">Trajet introuvable</h1>
-        <Link href="/" className="btn-primary">Retour</Link>
+        <h1 className="section-title mb-4">Aucune réservation en cours</h1>
+        <Link href="/" className="btn-primary">Rechercher un trajet</Link>
       </div>
     );
   }
@@ -46,56 +60,48 @@ function PassengersContent() {
 
   function handleContinue(e: React.FormEvent) {
     e.preventDefault();
-    // Valider
-    for (let i = 0; i < passengerList.length; i++) {
-      if (!passengerList[i].fullName.trim()) {
-        alert(`Veuillez entrer le nom du passager ${i + 1}.`);
-        return;
-      }
-    }
-    if (!passengerList[0].phone.trim()) {
-      alert("Veuillez entrer le numéro de téléphone du passager principal.");
+    setError("");
+    if (passengerList.some((p) => p.fullName.trim().length < 2)) {
+      setError("Veuillez entrer le nom complet de chaque passager.");
       return;
     }
-
-    // Stocker temporairement dans sessionStorage
-    const bookingData = {
-      tripId,
-      fromTerminal,
-      toTerminal,
-      trip,
-      passengers: passengerList,
-      seats,
-      totalPrice: totalPrice || trip.price * passengers,
-    };
-    sessionStorage.setItem("nzoko_booking", JSON.stringify(bookingData));
+    if (passengerList[0].phone.replace(/\D/g, "").length < 8) {
+      setError("Veuillez entrer un numéro de téléphone valide pour le passager principal.");
+      return;
+    }
+    saveDraft({ ...draft!, passengers: passengerList });
     router.push("/paiement");
   }
 
+  const premiumCount = trip ? draft.seats.filter((s) => seatIsPremium(trip.bus, s)).length : 0;
+  const estimated = trip ? draft.seats.length * trip.price + premiumCount * trip.premiumSupplement : null;
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <Link href="javascript:history.back()" className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
+      <button onClick={() => router.back()} className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
         ← Retour au plan du bus
-      </Link>
+      </button>
 
       <h1 className="section-title mt-2 mb-2">Informations passagers</h1>
-      <p className="text-gray-600 mb-6">
-        {trip.fromName} → {trip.toName} • Places : {seats.join(", ")}
+      <p className="text-gray-600 mb-4">
+        {trip ? `${trip.fromName} → ${trip.toName} • ${trip.departTime} • ` : ""}Places : {draft.seats.join(", ")}
       </p>
+      <div className="mb-6">
+        <HoldTimer expiresAt={draft.holdExpiresAt} />
+      </div>
+
+      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <form onSubmit={handleContinue} className="space-y-6">
         {passengerList.map((passenger, i) => (
           <div key={i} className="card">
             <h3 className="font-bold text-night mb-4">
-              👤 Passager {i + 1} — Place {seats[i]}
+              👤 Passager {i + 1} — Place {draft.seats[i]}
               {i === 0 && <span className="text-xs text-accent-700 ml-2">(Principal)</span>}
             </h3>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nom complet *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nom complet *</label>
                 <input
                   type="text"
                   value={passenger.fullName}
@@ -103,6 +109,7 @@ function PassengersContent() {
                   className="input-field"
                   placeholder="Ex: Jean Makaya"
                   required
+                  maxLength={120}
                 />
               </div>
               <div>
@@ -116,23 +123,21 @@ function PassengersContent() {
                   className="input-field"
                   placeholder="06 XXX XX XX"
                   required={i === 0}
+                  maxLength={30}
                 />
               </div>
             </div>
           </div>
         ))}
 
-        {/* Résumé */}
         <div className="card bg-night/5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-night">{passengers} passager(s)</p>
-              <p className="text-sm text-gray-600">{trip.fromName} → {trip.toName}</p>
+              <p className="font-semibold text-night">{draft.seats.length} passager(s)</p>
+              {trip && <p className="text-sm text-gray-600">{trip.fromName} → {trip.toName}</p>}
             </div>
             <div className="text-right">
-              <p className="text-2xl font-black text-accent-700">
-                {formatXAF(totalPrice || trip.price * passengers)}
-              </p>
+              {estimated !== null && <p className="text-2xl font-black text-accent-700">{formatXAF(estimated)}</p>}
             </div>
           </div>
         </div>
@@ -149,11 +154,13 @@ function PassengersContent() {
 
 export default function PassagersPage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-3xl mx-auto px-4 py-8 text-center">
-        <div className="animate-pulse text-gray-400">Chargement...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="max-w-3xl mx-auto px-4 py-8 text-center">
+          <div className="animate-pulse text-gray-400">Chargement...</div>
+        </div>
+      }
+    >
       <PassengersContent />
     </Suspense>
   );
