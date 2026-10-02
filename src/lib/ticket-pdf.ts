@@ -43,7 +43,7 @@ function formatXAF(n: number): string {
 }
 
 export async function generateTicketPdf(view: TicketView): Promise<ArrayBuffer> {
-  const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
+  const doc = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait", compress: true });
   const W = doc.internal.pageSize.getWidth(); // 148
   const H = doc.internal.pageSize.getHeight(); // 210
   const passengers = view.passengers.filter((p) => p.ticket_code);
@@ -125,7 +125,7 @@ export async function generateTicketPdf(view: TicketView): Promise<ArrayBuffer> 
     const qr = await QRCode.toDataURL(`${QR_PREFIX}${p.ticket_code}`, {
       errorCorrectionLevel: "M",
       margin: 1,
-      width: 480,
+      width: 360,
       color: { dark: "#0E2930", light: "#FFFFFF" },
     });
     const qrSize = 52;
