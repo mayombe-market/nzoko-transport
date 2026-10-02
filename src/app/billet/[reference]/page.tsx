@@ -2,7 +2,6 @@
 
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
 
@@ -52,29 +51,27 @@ export default function BilletPage() {
           departureTime: data.trip?.departTime || "",
           seats: data.seats?.join(", ") || "",
           totalPrice: data.totalPrice || 0,
-          status: "confirmed",
+          status: data.payment?.status === "confirmed" ? "confirmed" : "pending",
         });
         setLoading(false);
         return;
       }
     }
 
-    // Sinon essayer depuis Supabase
-    if (supabase) {
-      const { data: booking } = await supabase
-        .from("bookings")
-        .select("*, passengers(*)")
-        .eq("reference", reference)
-        .single();
+    // Sinon charger depuis le serveur (les tables ne sont pas lisibles directement)
+    {
+      const res = await fetch(`/api/billet/${encodeURIComponent(reference)}`);
+      const json = res.ok ? await res.json() : null;
+      const booking = json?.booking;
 
       if (booking) {
         const primary = booking.passengers?.find((p: any) => p.is_primary) || booking.passengers?.[0];
         setTicket({
           reference: booking.reference,
           passengerName: primary?.full_name || "Inconnu",
-          phone: primary?.phone || "",
-          from: booking.from_city || "?",
-          to: booking.to_city || "?",
+          phone: booking.customer_phone_masked || "",
+          from: booking.from_city_name || booking.from_city || "?",
+          to: booking.to_city_name || booking.to_city || "?",
           date: booking.date,
           departureTime: booking.departure_time,
           seats: booking.passengers?.map((p: any) => p.seat_number).join(", ") || "",

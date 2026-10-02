@@ -69,9 +69,13 @@ export default function PaiementPage() {
       // ====== SAUVEGARDER DANS SUPABASE ======
       if (supabase) {
         // 1. Créer la réservation
-        const { data: bookingRow, error: bookingError } = await supabase
+        // L'identifiant est généré ici : le visiteur peut créer sa réservation
+        // mais n'a pas le droit de la relire dans la base (protection des données).
+        const bookingId = crypto.randomUUID();
+        const { error: bookingError } = await supabase
           .from("bookings")
           .insert({
+            id: bookingId,
             reference,
             corridor_id: booking.tripId.split("|")[1] || null,
             from_city: booking.trip.from,
@@ -85,9 +89,7 @@ export default function PaiementPage() {
             status: "pending",
             customer_phone: booking.passengers[0]?.phone || phoneSender,
             customer_email: customerEmail || null,
-          })
-          .select()
-          .single();
+          });
 
         if (bookingError) {
           console.error("Booking error:", bookingError);
@@ -97,9 +99,9 @@ export default function PaiementPage() {
         }
 
         // 2. Ajouter les passagers
-        if (bookingRow) {
+        {
           const passengersData = booking.passengers.map((p, i) => ({
-            booking_id: bookingRow.id,
+            booking_id: bookingId,
             full_name: p.fullName,
             phone: p.phone || null,
             seat_number: booking.seats[i] || null,
@@ -118,7 +120,7 @@ export default function PaiementPage() {
           const { error: payError } = await supabase
             .from("payments")
             .insert({
-              booking_id: bookingRow.id,
+              booking_id: bookingId,
               method,
               amount: booking.totalPrice,
               transaction_code: transactionCode.trim(),
