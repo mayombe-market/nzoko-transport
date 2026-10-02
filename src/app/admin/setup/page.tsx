@@ -13,6 +13,7 @@ export default function AdminSetupPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [setupToken, setSetupToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -25,8 +26,8 @@ export default function AdminSetupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
+    if (password.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
     }
 
@@ -43,6 +44,7 @@ export default function AdminSetupPage() {
           fullName,
           phone,
           role: "admin",
+          setupToken,
         }),
       });
 
@@ -151,9 +153,9 @@ export default function AdminSetupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="input-field"
-              placeholder="Minimum 6 caractères"
+              placeholder="Minimum 8 caractères"
               required
-              minLength={6}
+              minLength={8}
             />
           </div>
 
@@ -171,6 +173,20 @@ export default function AdminSetupPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Code de configuration *
+            </label>
+            <input
+              type="password"
+              value={setupToken}
+              onChange={(e) => setSetupToken(e.target.value)}
+              className="input-field"
+              placeholder="Fourni par l'équipe technique"
+              required
+            />
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -182,8 +198,8 @@ export default function AdminSetupPage() {
 
         <div className="mt-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-xs text-yellow-800">
-            ⚠️ <strong>Important :</strong> Cette page ne doit être utilisée qu&apos;une seule fois,
-            lors de la première configuration. Après, utilisez le dashboard pour ajouter d&apos;autres agents.
+            ⚠️ <strong>Important :</strong> Cette page ne fonctionne que tant qu&apos;aucun administrateur
+            n&apos;existe, et uniquement avec le code de configuration. Ensuite, utilisez le dashboard pour ajouter d&apos;autres agents.
           </p>
         </div>
       </div>

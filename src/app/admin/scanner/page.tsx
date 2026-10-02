@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 interface ValidationResult {
   success: boolean;
@@ -111,10 +112,8 @@ export default function ScannerPage() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/validate-ticket", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference: reference.trim().toUpperCase() }),
+      const response = await authFetch("/api/validate-ticket", {
+        reference: reference.trim().toUpperCase(),
       });
 
       const data = await response.json();

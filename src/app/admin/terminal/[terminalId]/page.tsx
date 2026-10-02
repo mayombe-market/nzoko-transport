@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { authFetch } from "@/lib/auth-fetch";
 
 // Les terminus par ville
 const TERMINALS: Record<string, { name: string; city: string }> = {
@@ -102,30 +103,10 @@ export default function TerminalDashboard() {
 
     // 3. Envoyer le billet par email si le client a un email
     if (bookingData && bookingData.customer_email) {
-      const primaryPassenger = bookingData.passengers?.find((p: any) => p.is_primary) || bookingData.passengers?.[0];
-      const seats = bookingData.passengers?.map((p: any) => p.seat_number).filter(Boolean).join(", ") || "N/A";
-
-      const fromCityName = CITY_NAMES[bookingData.from_city] || bookingData.from_city;
-      const toCityName = CITY_NAMES[bookingData.to_city] || bookingData.to_city;
-
       try {
-        await fetch("/api/send-ticket", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            booking: {
-              reference: bookingData.reference,
-              email: bookingData.customer_email,
-              passengerName: primaryPassenger?.full_name || "Passager",
-              from: fromCityName,
-              to: toCityName,
-              date: bookingData.date,
-              departureTime: bookingData.departure_time,
-              seats,
-              totalPrice: bookingData.total_price,
-            },
-          }),
-        });
+        const res = await authFetch("/api/send-ticket", { reference: bookingData.reference });
+        const sent = await res.json();
+        if (!sent.success) throw new Error(sent.message);
         setConfirmMessage(`✅ Réservation confirmée ! Email envoyé à ${bookingData.customer_email}`);
       } catch (err) {
         console.error("Email send error:", err);

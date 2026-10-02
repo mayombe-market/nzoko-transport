@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAgent, isDenied, escapeHtml } from "@/lib/api-auth";
 
 // API Route pour envoyer le billet par email
-// Utilise Resend pour l'envoi d'email
+// Utilise Resend pour l'envoi d'email.
+// Réservée aux agents connectés ; le contenu est relu en base à partir de la référence
+// (le destinataire et le texte ne viennent jamais du navigateur).
 export async function POST(req: NextRequest) {
   try {
-    const { booking } = await req.json();
+    const { reference } = await req.json();
+
+    const ctx = await requireAgent(req);
+    if (isDenied(ctx)) return ctx;
+    const supabase = ctx.supabase;
 
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {
@@ -14,16 +21,55 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!booking || !booking.email || !booking.reference) {
+    if (!reference) {
       return NextResponse.json({
         success: false,
-        message: "Données de réservation incomplètes.",
-      });
+        message: "Référence manquante.",
+      }, { status: 400 });
     }
+
+    const { data: row } = await supabase
+      .from("bookings")
+      .select("*, passengers(*)")
+      .eq("reference", String(reference).toUpperCase())
+      .single();
+
+    if (!row || !row.customer_email) {
+      return NextResponse.json({
+        success: false,
+        message: "Réservation introuvable ou sans email.",
+      }, { status: 404 });
+    }
+
+    if (row.status !== "confirmed") {
+      return NextResponse.json({
+        success: false,
+        message: "Le billet ne peut être envoyé qu'après confirmation du paiement.",
+      }, { status: 409 });
+    }
+
+    const { data: cityRows } = await supabase
+      .from("cities")
+      .select("id, name")
+      .in("id", [row.from_city, row.to_city].filter(Boolean));
+    const cityName = (id: string) => cityRows?.find((c: any) => c.id === id)?.name || id;
+    const primary = row.passengers?.find((p: any) => p.is_primary) || row.passengers?.[0];
+
+    const booking = {
+      reference: escapeHtml(row.reference),
+      email: row.customer_email as string,
+      passengerName: escapeHtml(primary?.full_name || "Passager"),
+      from: escapeHtml(cityName(row.from_city)),
+      to: escapeHtml(cityName(row.to_city)),
+      date: escapeHtml(row.date),
+      departureTime: escapeHtml(row.departure_time),
+      seats: escapeHtml(row.passengers?.map((p: any) => p.seat_number).filter(Boolean).join(", ") || "N/A"),
+      totalPrice: escapeHtml(row.total_price),
+    };
 
     // Construire l'URL du billet (le client peut le télécharger depuis cette page)
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-    const ticketUrl = `${baseUrl}/billet/${booking.reference}`;
+    const ticketUrl = `${baseUrl}/billet/${encodeURIComponent(row.reference)}`;
 
     // Envoyer l'email via Resend
     const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -79,7 +125,7 @@ export async function POST(req: NextRequest) {
               
               <div style="text-align: center; margin: 24px 0; padding: 16px; background: #f3f4f6; border-radius: 8px;">
                 <p style="margin: 0 0 12px; font-size: 14px; color: #6b7280;">Votre QR code de validation :</p>
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(booking.reference)}" 
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(row.reference)}" 
                      alt="QR Code" 
                      style="width: 200px; height: 200px;" />
                 <p style="margin: 12px 0 0; font-size: 12px; color: #9ca3af;">

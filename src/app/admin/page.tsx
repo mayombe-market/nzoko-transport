@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { authFetch } from "@/lib/auth-fetch";
 import { signOut } from "@/lib/auth";
 import { BusFleetTab } from "@/components/BusFleetTab";
 import { LinesTab } from "@/components/LinesTab";
@@ -154,17 +155,13 @@ export default function AdminPage() {
 
     try {
       // Créer le compte via l'API
-      const response = await fetch("/api/create-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: newAgentEmail,
-          password: newAgentPassword,
-          fullName: newAgentName,
-          phone: newAgentPhone,
-          role: newAgentRole,
-          terminalId: newAgentTerminal || null,
-        }),
+      const response = await authFetch("/api/create-agent", {
+        email: newAgentEmail,
+        password: newAgentPassword,
+        fullName: newAgentName,
+        phone: newAgentPhone,
+        role: newAgentRole,
+        terminalId: newAgentTerminal || null,
       });
 
       const result = await response.json();
