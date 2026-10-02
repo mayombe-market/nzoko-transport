@@ -453,9 +453,9 @@ export default function AdminPage() {
                     value={newAgentPassword}
                     onChange={(e) => setNewAgentPassword(e.target.value)}
                     className="input-field"
-                    placeholder="Minimum 6 caractères"
+                    placeholder="Minimum 8 caractères"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
                 <div>
