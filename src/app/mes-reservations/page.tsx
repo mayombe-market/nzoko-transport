@@ -18,6 +18,7 @@ interface BookingWithPassengers {
   status: string;
   created_at: string;
   passengers?: { full_name: string; seat_number: string; is_primary: boolean }[];
+  access_key?: string | null;
 }
 
 const CITY_NAMES: Record<string, string> = {
@@ -164,10 +165,10 @@ export default function MesReservationsPage() {
             )}
           </div>
 
-          {/* Action : voir billet */}
-          {booking.status === "confirmed" && (
+          {/* Action : voir billet (lien personnel avec clé d'accès quand on la connaît) */}
+          {booking.status !== "cancelled" && (booking.access_key || booking.status === "confirmed") && (
             <Link
-              href={`/billet/${booking.reference}`}
+              href={`/billet/${booking.reference}${booking.access_key ? `?k=${encodeURIComponent(booking.access_key)}` : ""}`}
               className="btn-accent text-xs px-3 py-2 flex-shrink-0"
             >
               🎫 Billet

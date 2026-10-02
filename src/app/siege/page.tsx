@@ -1,113 +1,189 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, Suspense } from "react";
-import { getTripById } from "@/lib/trips";
-import { formatXAF } from "@/lib/utils";
+import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
+import { formatXAF } from "@/lib/utils";
 import { LOGO_ELEPHANT_SRC } from "@/components/Logo";
+import { HoldTimer } from "@/components/HoldTimer";
+import { buildLayout, seatIsPremium, type BusLayoutConfig, type LayoutSeat } from "@/lib/seat-layout";
+import { getHoldToken, loadDraft, saveDraft } from "@/lib/booking-session";
 
-// Configuration du bus : 5 colonnes (A,B | allée | C,D,E), 20 rangées
-const COLUMNS = ["A", "B", "C", "D", "E"];
-const TOTAL_ROWS = 20;
-const TOTAL_SEATS = COLUMNS.length * TOTAL_ROWS; // 100 places
-
-// Supplément pour les places premium
-const PREMIUM_SUPPLEMENT = 1000; // +1000 FCFA
-
-// Générer le label d'un siège : ex "A1", "C15", "E20"
-function seatLabel(col: string, row: number): string {
-  return `${col}${row}`;
-}
-
-// Déterminer si une place est premium :
-// - Rangée 1 derrière le chauffeur (C1, D1, E1)
-// - Places fenêtres (colonne A = fenêtre gauche, colonne E = fenêtre droite)
-function isPremiumSeat(col: string, row: number): boolean {
-  // Fenêtres : A (tout le côté gauche) et E (tout le côté droit)
-  if (col === "A" || col === "E") return true;
-  // Rangée 1 côté chauffeur (C, D, E) — E déjà couvert au-dessus
-  if (row === 1 && (col === "C" || col === "D")) return true;
-  return false;
+interface TripDetail {
+  tripId: string;
+  corridorLabel: string;
+  fromName: string;
+  toName: string;
+  departDate: string;
+  departTime: string;
+  arriveTime: string;
+  price: number;
+  premiumSupplement: number;
+  bus: BusLayoutConfig & { name: string; type: string };
+  taken: string[];
 }
 
 function SeatContent() {
   const params = useSearchParams();
   const router = useRouter();
   const tripId = params.get("tripId") || "";
-  const passengers = Number(params.get("passengers") || "1");
+  const from = params.get("from") || "";
+  const to = params.get("to") || "";
+  const passengers = Math.min(10, Math.max(1, Number(params.get("passengers") || "1")));
   const fromTerminal = params.get("fromTerminal") || "";
   const toTerminal = params.get("toTerminal") || "";
 
-  const trip = getTripById(tripId);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
+  const [trip, setTrip] = useState<TripDetail | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
-  if (!trip) {
+  const loadTrip = useCallback(async () => {
+    const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}?from=${from}&to=${to}`);
+    const json = await res.json().catch(() => null);
+    if (!json?.success) {
+      setLoadError(json?.message || "Départ introuvable.");
+      return null;
+    }
+    setTrip(json.trip);
+    return json.trip as TripDetail;
+  }, [tripId, from, to]);
+
+  // Chargement + reprise des sièges déjà bloqués par ce navigateur
+  useEffect(() => {
+    (async () => {
+      const t = await loadTrip();
+      const draft = loadDraft();
+      if (t && draft?.tripId === tripId && draft.seats.length) {
+        const res = await fetch(`/api/trips/${tripId}/hold`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ seats: draft.seats, token: getHoldToken() }),
+        });
+        const json = await res.json().catch(() => null);
+        if (json?.success) {
+          setSelected(draft.seats.slice(0, passengers));
+          setExpiresAt(json.expiresAt);
+        }
+        await loadTrip();
+      }
+    })();
+  }, [loadTrip, tripId, passengers]);
+
+  const layout = useMemo(() => (trip ? buildLayout(trip.bus) : []), [trip]);
+
+  async function toggleSeat(seat: LayoutSeat) {
+    if (!trip || busy) return;
+    const token = getHoldToken();
+    setMessage("");
+
+    if (selected.includes(seat.label)) {
+      setBusy(seat.label);
+      await fetch(`/api/trips/${tripId}/hold`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seat: seat.label, token }),
+      });
+      setSelected((prev) => prev.filter((s) => s !== seat.label));
+      setBusy(null);
+      return;
+    }
+
+    if (selected.length >= passengers) {
+      setMessage(`Vous avez déjà choisi ${passengers} siège${passengers > 1 ? "s" : ""}. Retirez-en un pour en choisir un autre.`);
+      return;
+    }
+
+    setBusy(seat.label);
+    const res = await fetch(`/api/trips/${tripId}/hold`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seat: seat.label, token }),
+    });
+    const json = await res.json().catch(() => null);
+    setBusy(null);
+    if (json?.success) {
+      setSelected((prev) => [...prev, seat.label]);
+      setExpiresAt(json.expiresAt);
+    } else {
+      setMessage(json?.message || "Ce siège n'est plus disponible.");
+      loadTrip();
+    }
+  }
+
+  const handleExpire = useCallback(() => {
+    setSelected([]);
+    setExpiresAt(null);
+    setMessage("Le délai de 15 minutes est dépassé : vos sièges ont été libérés. Choisissez à nouveau.");
+    loadTrip();
+  }, [loadTrip]);
+
+  if (loadError) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-12 text-center">
-        <h1 className="section-title mb-4">Trajet introuvable</h1>
+        <h1 className="section-title mb-4">{loadError}</h1>
         <Link href="/" className="btn-primary">Retour à l&apos;accueil</Link>
       </div>
     );
   }
-
-  // Générer les sièges occupés (déterministe)
-  const occupiedSeats = generateOccupied(tripId, TOTAL_SEATS);
-
-  function toggleSeat(seat: string) {
-    if (occupiedSeats.has(seat)) return;
-    setSelectedSeats((prev) => {
-      if (prev.includes(seat)) {
-        return prev.filter((s) => s !== seat);
-      }
-      if (prev.length >= passengers) {
-        return [...prev.slice(1), seat];
-      }
-      return [...prev, seat];
-    });
+  if (!trip) {
+    return <div className="max-w-3xl mx-auto px-4 py-12 text-center text-gray-400 animate-pulse">Chargement du plan du bus…</div>;
   }
 
-  // Calculer le prix total en tenant compte des places premium
-  function calculateTotalPrice(): number {
-    let total = 0;
-    for (const seat of selectedSeats) {
-      const col = seat.charAt(0);
-      const row = parseInt(seat.slice(1));
-      const premium = isPremiumSeat(col, row) ? PREMIUM_SUPPLEMENT : 0;
-      total += trip.price + premium;
-    }
-    return total;
-  }
+  const premiumCount = selected.filter((s) => seatIsPremium(trip.bus, s)).length;
+  const estimatedTotal = selected.length * trip.price + premiumCount * trip.premiumSupplement;
+  const takenByOthers = new Set(trip.taken.filter((s) => !selected.includes(s)));
 
   function handleContinue() {
-    if (selectedSeats.length < passengers) {
-      alert(`Veuillez sélectionner ${passengers} siège(s).`);
-      return;
-    }
-    const totalPrice = calculateTotalPrice();
-    const searchParams = new URLSearchParams({
+    if (!trip || selected.length < passengers) return;
+    const draft = loadDraft();
+    saveDraft({
       tripId,
-      passengers: String(passengers),
-      seats: selectedSeats.join(","),
-      totalPrice: String(totalPrice),
-      ...(fromTerminal && { fromTerminal }),
-      ...(toTerminal && { toTerminal }),
+      from,
+      to,
+      fromTerminal: fromTerminal || undefined,
+      toTerminal: toTerminal || undefined,
+      seats: selected,
+      holdExpiresAt: expiresAt,
+      passengers: draft?.tripId === tripId ? draft.passengers : undefined,
     });
-    router.push(`/passagers?${searchParams.toString()}`);
+    router.push(`/passagers?${new URLSearchParams({ tripId, from, to, passengers: String(passengers) }).toString()}`);
   }
 
-  const totalPrice = calculateTotalPrice();
+  const renderSeat = (seat: LayoutSeat) => {
+    const isSelected = selected.includes(seat.label);
+    const isTaken = takenByOthers.has(seat.label);
+    return (
+      <SeatButton
+        key={seat.label}
+        seat={seat.label}
+        isOccupied={isTaken}
+        isSelected={isSelected}
+        isPremium={seat.premium}
+        loading={busy === seat.label}
+        onClick={() => toggleSeat(seat)}
+      />
+    );
+  };
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-      <Link href="javascript:history.back()" className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
+      <button onClick={() => router.back()} className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
         ← Retour aux résultats
-      </Link>
+      </button>
 
       <h1 className="section-title mt-2 mb-2">Choisissez vos places</h1>
-      <p className="text-gray-600 mb-6">
-        {trip.fromName} → {trip.toName} • Départ {trip.departTime} • {trip.busType}
+      <p className="text-gray-600 mb-4">
+        {trip.fromName} → {trip.toName} •{" "}
+        {new Date(trip.departDate + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}{" "}
+        à {trip.departTime} • {trip.bus.name}
       </p>
+
+      <div className="mb-4">
+        <HoldTimer expiresAt={selected.length ? expiresAt : null} onExpire={handleExpire} />
+      </div>
 
       {/* Légende */}
       <div className="flex gap-3 mb-6 text-sm flex-wrap">
@@ -117,7 +193,7 @@ function SeatContent() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-anthracite rounded ring-2 ring-accent-500" />
-          <span className="text-gray-600">Premium — {formatXAF(trip.price + PREMIUM_SUPPLEMENT)}</span>
+          <span className="text-gray-600">Premium — {formatXAF(trip.price + trip.premiumSupplement)}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-accent-500 rounded" />
@@ -129,147 +205,68 @@ function SeatContent() {
         </div>
       </div>
 
-      {/* Info premium */}
       <div className="bg-accent-50 border border-accent-200 rounded-lg p-3 mb-6 text-sm text-accent-900">
-        ⭐ <strong>Places Premium</strong> (+{formatXAF(PREMIUM_SUPPLEMENT)}) : fenêtres (colonnes A et E) et première rangée derrière le chauffeur.
+        ⭐ <strong>Places Premium</strong> (+{formatXAF(trip.premiumSupplement)}) : fenêtres et première rangée derrière le chauffeur.
       </div>
 
-      {/* Plan du bus */}
-      <div className="card mb-6 overflow-x-auto">
-        <div className="text-center text-xs text-gray-400 mb-2">
-          🚌 Avant du bus
-        </div>
+      {message && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{message}</div>
+      )}
 
-        {/* Position du chauffeur */}
-        <div className="flex justify-center items-center gap-1 mb-4">
-          <div className="w-8" />
-          <div className="w-11" />
-          <div className="w-11" />
-          <div className="w-6" />
-          <div className="w-[140px] h-10 bg-night rounded-lg flex items-center justify-center gap-2">
-            <span className="text-lg">🚗</span>
+      {/* Plan du bus (construit d'après la configuration réelle du bus) */}
+      <div className="card mb-6 overflow-x-auto">
+        <div className="text-center text-xs text-gray-400 mb-2">Avant du bus</div>
+        <div className="flex justify-end mb-4 max-w-[360px] mx-auto">
+          <div className="px-4 h-10 bg-night rounded-lg flex items-center justify-center gap-2">
             <span className="text-white text-xs font-bold">Chauffeur</span>
           </div>
         </div>
 
-        {/* Indicateur fenêtres */}
-        <div className="flex justify-center items-center gap-1 mb-1">
-          <div className="w-8" />
-          <div className="w-11 text-center text-[10px] text-accent-700 font-medium">fenêtre</div>
-          <div className="w-11" />
-          <div className="w-6" />
-          <div className="w-11" />
-          <div className="w-11" />
-          <div className="w-11 text-center text-[10px] text-accent-700 font-medium">fenêtre</div>
-        </div>
-
-        {/* En-tête colonnes */}
-        <div className="flex justify-center items-center gap-1 mb-3">
-          <div className="w-8 h-6" />
-          <div className="w-11 text-center text-xs font-bold text-accent-700">A</div>
-          <div className="w-11 text-center text-xs font-bold text-night">B</div>
-          <div className="w-6" />
-          <div className="w-11 text-center text-xs font-bold text-night">C</div>
-          <div className="w-11 text-center text-xs font-bold text-night">D</div>
-          <div className="w-11 text-center text-xs font-bold text-accent-700">E</div>
-        </div>
-
-        {/* Rangées */}
-        {Array.from({ length: TOTAL_ROWS }, (_, rowIdx) => {
-          const rowNum = rowIdx + 1;
-
-          return (
-            <div key={rowNum} className="flex justify-center items-center gap-1 mb-1">
-              {/* Numéro de rangée */}
-              <div className="w-8 text-right text-xs font-medium text-gray-400 pr-1">
-                {rowNum}
-              </div>
-
-              {/* Côté gauche : A, B (2 places) */}
-              {["A", "B"].map((col) => {
-                const seat = seatLabel(col, rowNum);
-                const isOccupied = occupiedSeats.has(seat);
-                const isSelected = selectedSeats.includes(seat);
-                const isPremium = isPremiumSeat(col, rowNum);
-
-                return (
-                  <SeatButton
-                    key={seat}
-                    seat={seat}
-                    isOccupied={isOccupied}
-                    isSelected={isSelected}
-                    isPremium={isPremium}
-                    onClick={() => toggleSeat(seat)}
-                  />
-                );
-              })}
-
-              {/* Allée */}
-              <div className="w-6 flex items-center justify-center">
-                <div className="w-px h-6 bg-gray-200" />
-              </div>
-
-              {/* Côté droit : C, D, E (3 places) */}
-              {["C", "D", "E"].map((col) => {
-                const seat = seatLabel(col, rowNum);
-                const isOccupied = occupiedSeats.has(seat);
-                const isSelected = selectedSeats.includes(seat);
-                const isPremium = isPremiumSeat(col, rowNum);
-
-                return (
-                  <SeatButton
-                    key={seat}
-                    seat={seat}
-                    isOccupied={isOccupied}
-                    isSelected={isSelected}
-                    isPremium={isPremium}
-                    onClick={() => toggleSeat(seat)}
-                  />
-                );
-              })}
+        <div className="max-w-[360px] mx-auto space-y-1">
+          {layout.map((row) => (
+            <div key={row.number} className="flex items-center gap-1 justify-center">
+              <div className="w-6 text-right text-xs font-medium text-gray-400 pr-1">{row.number}</div>
+              {row.isBackRow ? (
+                <div className="flex gap-1">{row.left.map(renderSeat)}</div>
+              ) : (
+                <>
+                  <div className="flex gap-1">{row.left.map(renderSeat)}</div>
+                  <div className="w-6 flex items-center justify-center">
+                    <div className="w-px h-6 bg-gray-200" />
+                  </div>
+                  <div className="flex gap-1">{row.right.map(renderSeat)}</div>
+                </>
+              )}
             </div>
-          );
-        })}
-
-        <div className="text-center text-xs text-gray-400 mt-4">
-          Arrière du bus
+          ))}
         </div>
+        <div className="text-center text-xs text-gray-400 mt-4">Arrière du bus</div>
       </div>
 
       {/* Résumé */}
       <div className="card bg-night/5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm text-gray-600">
-              {selectedSeats.length}/{passengers} siège(s) sélectionné(s)
+              {selected.length}/{passengers} siège(s) sélectionné(s)
             </p>
-            {selectedSeats.length > 0 && (
-              <div className="mt-1">
-                {selectedSeats.map((seat) => {
-                  const col = seat.charAt(0);
-                  const row = parseInt(seat.slice(1));
-                  const premium = isPremiumSeat(col, row);
-                  return (
-                    <span key={seat} className={`inline-block text-xs mr-2 px-2 py-0.5 rounded ${premium ? "bg-accent-100 text-accent-900" : "bg-primary-100 text-primary-800"}`}>
-                      {seat} {premium ? "⭐" : ""} — {formatXAF(trip.price + (premium ? PREMIUM_SUPPLEMENT : 0))}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
+            <div className="mt-1">
+              {selected.map((seat) => {
+                const premium = seatIsPremium(trip.bus, seat);
+                return (
+                  <span key={seat} className={`inline-block text-xs mr-2 mb-1 px-2 py-0.5 rounded ${premium ? "bg-accent-100 text-accent-900" : "bg-primary-100 text-primary-800"}`}>
+                    {seat} {premium ? "⭐" : ""} — {formatXAF(trip.price + (premium ? trip.premiumSupplement : 0))}
+                  </span>
+                );
+              })}
+            </div>
           </div>
           <div className="text-right">
-            <p className="text-lg font-black text-accent-700">
-              {formatXAF(totalPrice || trip.price * passengers)}
-            </p>
-            {selectedSeats.length > 0 && selectedSeats.some(s => isPremiumSeat(s.charAt(0), parseInt(s.slice(1)))) && (
-              <p className="text-xs text-accent-700">
-                Inclut supplément premium
-              </p>
-            )}
+            <p className="text-lg font-black text-accent-700">{formatXAF(estimatedTotal || trip.price * passengers)}</p>
+            <p className="text-[11px] text-gray-500">Prix officiel confirmé à l&apos;étape paiement</p>
             <button
               onClick={handleContinue}
-              disabled={selectedSeats.length < passengers}
+              disabled={selected.length < passengers}
               className="btn-accent mt-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continuer →
@@ -283,11 +280,12 @@ function SeatContent() {
 
 // Siège : anthracite comme les vrais sièges Nzoko, petit éléphant doré « brodé »,
 // contour or = premium, or plein = siège choisi, gris clair = occupé
-function SeatButton({ seat, isOccupied, isSelected, isPremium, onClick }: {
+function SeatButton({ seat, isOccupied, isSelected, isPremium, loading, onClick }: {
   seat: string;
   isOccupied: boolean;
   isSelected: boolean;
   isPremium: boolean;
+  loading: boolean;
   onClick: () => void;
 }) {
   const state = isOccupied
@@ -299,8 +297,8 @@ function SeatButton({ seat, isOccupied, isSelected, isPremium, onClick }: {
   return (
     <button
       onClick={onClick}
-      disabled={isOccupied}
-      className={`w-11 h-10 rounded-t-lg rounded-b-md text-[11px] font-bold transition-all flex flex-col items-center justify-center leading-none ${state}`}
+      disabled={isOccupied || loading}
+      className={`w-11 h-10 rounded-t-lg rounded-b-md text-[11px] font-bold transition-all flex flex-col items-center justify-center leading-none ${state} ${loading ? "opacity-60" : ""}`}
       title={isOccupied ? "Occupé" : `Place ${seat}${isPremium ? " (Premium)" : ""}`}
     >
       {!isOccupied && (
@@ -316,40 +314,9 @@ function SeatButton({ seat, isOccupied, isSelected, isPremium, onClick }: {
   );
 }
 
-// Générateur déterministe de sièges occupés (utilise les labels A1, B3, etc.)
-function generateOccupied(tripId: string, totalSeats: number): Set<string> {
-  let h = 2166136261;
-  for (let i = 0; i < tripId.length; i++) {
-    h ^= tripId.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  h = h >>> 0;
-
-  let s = h;
-  function rand() {
-    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-    return s / 4294967296;
-  }
-
-  const count = Math.floor(rand() * (totalSeats * 0.35)); // ~35% occupés
-  const taken = new Set<string>();
-  let guard = 0;
-  while (taken.size < count && guard < totalSeats * 4) {
-    const colIdx = Math.floor(rand() * COLUMNS.length);
-    const rowNum = 1 + Math.floor(rand() * TOTAL_ROWS);
-    taken.add(seatLabel(COLUMNS[colIdx], rowNum));
-    guard++;
-  }
-  return taken;
-}
-
 export default function SiegePage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-3xl mx-auto px-4 py-8 text-center">
-        <div className="animate-pulse text-gray-400">Chargement du plan...</div>
-      </div>
-    }>
+    <Suspense fallback={<div className="text-center py-12 text-gray-400">Chargement...</div>}>
       <SeatContent />
     </Suspense>
   );
