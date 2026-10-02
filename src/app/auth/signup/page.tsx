@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { Suspense } from "react";
+import { LogoIcon } from "@/components/Logo";
 
 function SignupContent() {
   const router = useRouter();
@@ -87,8 +88,8 @@ function SignupContent() {
     <div className="max-w-md mx-auto px-4 py-16">
       <div className="card">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 bg-night rounded-full flex items-center justify-center mx-auto mb-3">
-            <span className="text-2xl">🆕</span>
+          <div className="w-16 h-16 bg-night rounded-full flex items-center justify-center mx-auto mb-3">
+            <LogoIcon className="w-10 h-10" />
           </div>
           <h1 className="text-xl font-bold text-night">Créer un compte</h1>
           <p className="text-sm text-gray-600 mt-1">

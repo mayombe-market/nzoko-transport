@@ -8,6 +8,7 @@ import { signOut } from "@/lib/auth";
 import { BusFleetTab } from "@/components/BusFleetTab";
 import { LinesTab } from "@/components/LinesTab";
 import type { User } from "@supabase/supabase-js";
+import { LogoIcon } from "@/components/Logo";
 
 interface AgentProfile {
   id: string;
@@ -218,7 +219,7 @@ export default function AdminPage() {
         <div className="card">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-night rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🔒</span>
+              <LogoIcon className="w-10 h-10" />
             </div>
             <h1 className="text-xl font-bold text-night mb-2">Espace Agent</h1>
             <p className="text-sm text-gray-600">
@@ -278,7 +279,11 @@ export default function AdminPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Header admin */}
       <div className="flex items-center justify-between mb-8">
-        <div>
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-night rounded-xl flex items-center justify-center shrink-0">
+            <LogoIcon className="w-8 h-8" />
+          </div>
+          <div>
           <h1 className="section-title">Dashboard Nzoko Transport</h1>
           <p className="text-gray-600 text-sm">
             Connecté en tant que <strong>{profile.full_name}</strong>
@@ -288,6 +293,7 @@ export default function AdminPage() {
               {profile.role === "admin" ? "Administrateur" : "Agent"}
             </span>
           </p>
+          </div>
         </div>
         <button
           onClick={() => signOut()}

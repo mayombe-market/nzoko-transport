@@ -5,6 +5,7 @@ import { useState, Suspense } from "react";
 import { getTripById } from "@/lib/trips";
 import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
+import { LOGO_ELEPHANT_SRC } from "@/components/Logo";
 
 // Configuration du bus : 5 colonnes (A,B | allée | C,D,E), 20 rangées
 const COLUMNS = ["A", "B", "C", "D", "E"];
@@ -111,15 +112,15 @@ function SeatContent() {
       {/* Légende */}
       <div className="flex gap-3 mb-6 text-sm flex-wrap">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-primary-500 rounded" />
+          <div className="w-6 h-6 bg-anthracite rounded" />
           <span className="text-gray-600">Standard — {formatXAF(trip.price)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-gradient-to-br from-yellow-400 to-amber-500 rounded border border-amber-600" />
+          <div className="w-6 h-6 bg-anthracite rounded ring-2 ring-accent-500" />
           <span className="text-gray-600">Premium — {formatXAF(trip.price + PREMIUM_SUPPLEMENT)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-accent-500 rounded ring-2 ring-night" />
+          <div className="w-6 h-6 bg-accent-500 rounded" />
           <span className="text-gray-600">Votre choix</span>
         </div>
         <div className="flex items-center gap-2">
@@ -129,7 +130,7 @@ function SeatContent() {
       </div>
 
       {/* Info premium */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6 text-sm text-amber-800">
+      <div className="bg-accent-50 border border-accent-200 rounded-lg p-3 mb-6 text-sm text-accent-900">
         ⭐ <strong>Places Premium</strong> (+{formatXAF(PREMIUM_SUPPLEMENT)}) : fenêtres (colonnes A et E) et première rangée derrière le chauffeur.
       </div>
 
@@ -154,23 +155,23 @@ function SeatContent() {
         {/* Indicateur fenêtres */}
         <div className="flex justify-center items-center gap-1 mb-1">
           <div className="w-8" />
-          <div className="w-11 text-center text-[10px] text-amber-600 font-medium">fenêtre</div>
+          <div className="w-11 text-center text-[10px] text-accent-700 font-medium">fenêtre</div>
           <div className="w-11" />
           <div className="w-6" />
           <div className="w-11" />
           <div className="w-11" />
-          <div className="w-11 text-center text-[10px] text-amber-600 font-medium">fenêtre</div>
+          <div className="w-11 text-center text-[10px] text-accent-700 font-medium">fenêtre</div>
         </div>
 
         {/* En-tête colonnes */}
         <div className="flex justify-center items-center gap-1 mb-3">
           <div className="w-8 h-6" />
-          <div className="w-11 text-center text-xs font-bold text-amber-600">A</div>
+          <div className="w-11 text-center text-xs font-bold text-accent-700">A</div>
           <div className="w-11 text-center text-xs font-bold text-night">B</div>
           <div className="w-6" />
           <div className="w-11 text-center text-xs font-bold text-night">C</div>
           <div className="w-11 text-center text-xs font-bold text-night">D</div>
-          <div className="w-11 text-center text-xs font-bold text-amber-600">E</div>
+          <div className="w-11 text-center text-xs font-bold text-accent-700">E</div>
         </div>
 
         {/* Rangées */}
@@ -192,21 +193,14 @@ function SeatContent() {
                 const isPremium = isPremiumSeat(col, rowNum);
 
                 return (
-                  <button
+                  <SeatButton
                     key={seat}
+                    seat={seat}
+                    isOccupied={isOccupied}
+                    isSelected={isSelected}
+                    isPremium={isPremium}
                     onClick={() => toggleSeat(seat)}
-                    disabled={isOccupied}
-                    className={`
-                      w-11 h-9 rounded-md text-xs font-bold transition-all
-                      ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
-                      ${isSelected ? "bg-accent-500 text-night ring-2 ring-night shadow-md" : ""}
-                      ${!isOccupied && !isSelected && isPremium ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-night border border-amber-600 hover:from-yellow-300 hover:to-amber-400 cursor-pointer" : ""}
-                      ${!isOccupied && !isSelected && !isPremium ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
-                    `}
-                    title={isOccupied ? "Occupé" : `Place ${seat}${isPremium ? " (Premium)": ""}`}
-                  >
-                    {seat}
-                  </button>
+                  />
                 );
               })}
 
@@ -223,21 +217,14 @@ function SeatContent() {
                 const isPremium = isPremiumSeat(col, rowNum);
 
                 return (
-                  <button
+                  <SeatButton
                     key={seat}
+                    seat={seat}
+                    isOccupied={isOccupied}
+                    isSelected={isSelected}
+                    isPremium={isPremium}
                     onClick={() => toggleSeat(seat)}
-                    disabled={isOccupied}
-                    className={`
-                      w-11 h-9 rounded-md text-xs font-bold transition-all
-                      ${isOccupied ? "bg-gray-300 text-gray-500 cursor-not-allowed" : ""}
-                      ${isSelected ? "bg-accent-500 text-night ring-2 ring-night shadow-md" : ""}
-                      ${!isOccupied && !isSelected && isPremium ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-night border border-amber-600 hover:from-yellow-300 hover:to-amber-400 cursor-pointer" : ""}
-                      ${!isOccupied && !isSelected && !isPremium ? "bg-primary-500 text-white hover:bg-primary-400 cursor-pointer" : ""}
-                    `}
-                    title={isOccupied ? "Occupé" : `Place ${seat}${isPremium ? " (Premium)": ""}`}
-                  >
-                    {seat}
-                  </button>
+                  />
                 );
               })}
             </div>
@@ -263,7 +250,7 @@ function SeatContent() {
                   const row = parseInt(seat.slice(1));
                   const premium = isPremiumSeat(col, row);
                   return (
-                    <span key={seat} className={`inline-block text-xs mr-2 px-2 py-0.5 rounded ${premium ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"}`}>
+                    <span key={seat} className={`inline-block text-xs mr-2 px-2 py-0.5 rounded ${premium ? "bg-accent-100 text-accent-900" : "bg-primary-100 text-primary-800"}`}>
                       {seat} {premium ? "⭐" : ""} — {formatXAF(trip.price + (premium ? PREMIUM_SUPPLEMENT : 0))}
                     </span>
                   );
@@ -276,7 +263,7 @@ function SeatContent() {
               {formatXAF(totalPrice || trip.price * passengers)}
             </p>
             {selectedSeats.length > 0 && selectedSeats.some(s => isPremiumSeat(s.charAt(0), parseInt(s.slice(1)))) && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-accent-700">
                 Inclut supplément premium
               </p>
             )}
@@ -291,6 +278,41 @@ function SeatContent() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Siège : anthracite comme les vrais sièges Nzoko, petit éléphant doré « brodé »,
+// contour or = premium, or plein = siège choisi, gris clair = occupé
+function SeatButton({ seat, isOccupied, isSelected, isPremium, onClick }: {
+  seat: string;
+  isOccupied: boolean;
+  isSelected: boolean;
+  isPremium: boolean;
+  onClick: () => void;
+}) {
+  const state = isOccupied
+    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+    : isSelected
+      ? "bg-accent-500 text-night shadow-md"
+      : `bg-anthracite text-white hover:bg-anthracite-light cursor-pointer ${isPremium ? "ring-2 ring-accent-500" : ""}`;
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={isOccupied}
+      className={`w-11 h-10 rounded-t-lg rounded-b-md text-[11px] font-bold transition-all flex flex-col items-center justify-center leading-none ${state}`}
+      title={isOccupied ? "Occupé" : `Place ${seat}${isPremium ? " (Premium)" : ""}`}
+    >
+      {!isOccupied && (
+        <img
+          src={LOGO_ELEPHANT_SRC}
+          alt=""
+          aria-hidden="true"
+          className={`w-3.5 h-3 object-contain mb-0.5 ${isSelected ? "brightness-0 opacity-60" : "opacity-90"}`}
+        />
+      )}
+      {seat}
+    </button>
   );
 }
 

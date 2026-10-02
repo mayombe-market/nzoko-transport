@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { signOut } from "@/lib/auth";
-import { LogoIcon } from "./Logo";
+import { LogoFull } from "./Logo";
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,18 +22,12 @@ export function Header() {
   }, []);
 
   return (
-    <header className="bg-night text-white shadow-lg sticky top-0 z-50">
+    <header className="bg-night text-white shadow-lg sticky top-0 z-50 border-b border-accent-500/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-[68px]">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <LogoIcon className="w-10 h-10" />
-            <div>
-              <span className="font-bold text-lg tracking-tight">Nzoko Transport</span>
-              <span className="hidden sm:block text-xs text-accent-400">
-                Voyagez en toute sécurité
-              </span>
-            </div>
+          <Link href="/" className="flex items-center" aria-label="Nzoko Transport — accueil">
+            <LogoFull className="h-12 w-auto" />
           </Link>
 
           {/* Navigation desktop */}

@@ -84,13 +84,13 @@ export async function POST(req: NextRequest) {
         subject: `🎫 Votre billet Nzoko Transport — ${booking.reference}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
-            <div style="background: #0f2340; color: white; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px; color: #ffd700;">🐘 Nzoko Transport</h1>
+            <div style="background: #0e2930; color: white; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">
+              <img src="${baseUrl}/brand/nzoko-logo.png" alt="Nzoko Transport" width="132" style="display: block; margin: 0 auto; width: 132px; height: auto;" />
               <p style="margin: 8px 0 0; opacity: 0.8;">Votre billet de voyage</p>
             </div>
             
             <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb;">
-              <h2 style="color: #0f2340; margin-top: 0;">Réservation confirmée ✅</h2>
+              <h2 style="color: #0e2930; margin-top: 0;">Réservation confirmée ✅</h2>
               
               <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
                 <tr>
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Montant</td>
-                  <td style="padding: 8px 0; font-weight: bold; color: #b39700;">${booking.totalPrice} FCFA</td>
+                  <td style="padding: 8px 0; font-weight: bold; color: #a7711d;">${booking.totalPrice} FCFA</td>
                 </tr>
               </table>
               
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
               
               <div style="text-align: center; margin-top: 20px;">
                 <a href="${ticketUrl}" 
-                   style="display: inline-block; background: #ffd700; color: #0f2340; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                   style="display: inline-block; background: #e2ab35; color: #0e2930; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
                   📄 Voir / Télécharger mon billet
                 </a>
               </div>

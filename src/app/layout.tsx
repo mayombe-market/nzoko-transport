@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Montserrat } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const montserrat = Montserrat({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-montserrat" });
 
 export const metadata: Metadata = {
   title: "Nzoko Transport — Réservation de bus au Congo",
@@ -20,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${montserrat.variable} font-sans`}>
         <div className="flex flex-col min-h-screen">
           <Header />
           <main className="flex-1">{children}</main>

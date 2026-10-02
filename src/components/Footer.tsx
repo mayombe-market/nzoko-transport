@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogoIcon } from "./Logo";
+import { LogoFull } from "./Logo";
 
 export function Footer() {
   return (
@@ -8,10 +8,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Marque */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
-              <LogoIcon className="w-10 h-10" />
-              <span className="font-bold text-lg">Nzoko Transport</span>
-            </div>
+            <LogoFull className="h-20 w-auto mb-4" />
             <p className="text-gray-400 text-sm leading-relaxed">
               Voyagez en toute sécurité partout au Congo-Brazzaville.
               Réservation en ligne, paiement Mobile Money.
@@ -60,7 +57,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-gray-700 mt-8 pt-6 text-center text-sm text-gray-500">
+        <div className="border-t border-white/10 mt-8 pt-6 text-center text-sm text-gray-500">
           © {new Date().getFullYear()} Nzoko Transport. Tous droits réservés.
         </div>
       </div>

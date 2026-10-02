@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
+import { LogoIcon } from "@/components/Logo";
 
 interface ConfirmationData {
   reference: string;
@@ -82,11 +83,11 @@ export default function ConfirmationPage() {
       </div>
 
       {/* Billet */}
-      <div className="card border-2 border-accent-400">
+      <div className="card border-2 border-accent-500">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-dashed">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent-500 rounded-lg flex items-center justify-center">
-              <span className="text-night font-black">N</span>
+            <div className="w-10 h-10 bg-night rounded-lg flex items-center justify-center">
+              <LogoIcon className="w-7 h-7" />
             </div>
             <span className="font-bold text-night">Nzoko Transport</span>
           </div>
