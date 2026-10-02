@@ -4,15 +4,17 @@
 
 @layer base {
   :root {
-    --color-night: #0f2340;
-    --color-night-light: #1a3a6b;
-    --color-night-dark: #071020;
-    --color-gold: #ffd700;
-    --color-gold-dark: #b39700;
+    --color-night: #0e2930;
+    --color-night-light: #15404a;
+    --color-night-dark: #08191d;
+    --color-gold: #e2ab35;
+    --color-gold-dark: #a7711d;
+    --color-anthracite: #3e3e39;
+    --color-creme: #f7f4ec;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-creme text-gray-900 antialiased;
   }
 }
 
@@ -47,7 +49,12 @@
   }
 
   .section-title {
-    @apply text-2xl font-bold text-night;
+    @apply font-display text-2xl font-semibold text-night;
+  }
+
+  /* Symbole éléphant Nzoko en filigrane : derrière le texte, jamais devant */
+  .brand-watermark {
+    @apply pointer-events-none select-none absolute opacity-[0.07];
   }
 }
 

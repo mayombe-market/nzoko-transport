@@ -70,7 +70,7 @@ function ResultsContent() {
           </p>
 
           {trips.map((trip) => (
-            <div key={trip.tripId} className="card hover:shadow-lg transition-shadow">
+            <div key={trip.tripId} className="card border-l-4 border-l-accent-500 hover:shadow-lg transition-shadow">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 {/* Horaires */}
                 <div className="flex items-center gap-4">

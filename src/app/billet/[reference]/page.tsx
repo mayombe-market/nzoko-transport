@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
+import { LogoFull, Watermark } from "@/components/Logo";
 
 interface TicketData {
   reference: string;
@@ -128,17 +129,12 @@ export default function BilletPage() {
       </div>
 
       {/* Billet */}
-      <div className="card border-2 border-night print:border-black print:shadow-none">
+      <div className="card relative overflow-hidden border-2 border-night print:shadow-none [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
         {/* Header */}
         <div className="bg-night text-white p-4 -mx-6 -mt-6 rounded-t-xl mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent-500 rounded-lg flex items-center justify-center">
-              <span className="text-night font-black text-lg">N</span>
-            </div>
-            <div>
-              <span className="font-bold">Nzoko Transport</span>
-              <p className="text-xs text-gray-300">Billet de voyage</p>
-            </div>
+            <LogoFull className="h-14 w-auto" />
+            <p className="text-xs text-gray-300 border-l border-white/20 pl-3">Billet de voyage</p>
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-300">Référence</p>
@@ -146,8 +142,11 @@ export default function BilletPage() {
           </div>
         </div>
 
+        {/* Éléphant Nzoko en filigrane, derrière les informations */}
+        <Watermark className="right-2 top-28 w-48" />
+
         {/* Infos voyage */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="relative grid grid-cols-2 gap-4 mb-6">
           <div>
             <p className="text-xs text-gray-500">Passager</p>
             <p className="font-bold text-night">{ticket.passengerName}</p>
@@ -183,7 +182,7 @@ export default function BilletPage() {
         </div>
 
         {/* QR Code */}
-        <div className="border-t border-dashed pt-6 text-center">
+        <div className="relative bg-creme border-t-2 border-dashed border-accent-500 -mx-6 px-6 py-6 text-center">
           <p className="text-xs text-gray-500 mb-3">
             Présentez ce QR code à l&apos;agent avant de monter dans le bus
           </p>
@@ -198,7 +197,7 @@ export default function BilletPage() {
         </div>
 
         {/* Statut */}
-        <div className="mt-6 pt-4 border-t text-center">
+        <div className="relative mt-6 pt-4 border-t text-center">
           <span className={`inline-block px-4 py-1 rounded-full text-sm font-semibold ${
             ticket.status === "confirmed" ? "bg-green-100 text-green-700" :
             ticket.status === "pending" ? "bg-yellow-100 text-yellow-700" :
@@ -211,7 +210,7 @@ export default function BilletPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-6 pt-4 border-t text-center text-xs text-gray-400">
+        <div className="relative mt-6 pt-4 border-t text-center text-xs text-gray-400">
           <p>Nzoko Transport — Voyagez en toute sécurité 🇨🇬</p>
           <p className="mt-1">Ce billet est valable uniquement pour le voyage indiqué.</p>
         </div>
