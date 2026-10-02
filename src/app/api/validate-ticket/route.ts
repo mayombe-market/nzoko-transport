@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+import { requireAgent, isDenied } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,14 +12,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json({
-        success: false,
-        message: "Service non configuré.",
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Seuls les agents/admins connectés peuvent valider un billet
+    const ctx = await requireAgent(req);
+    if (isDenied(ctx)) return ctx;
+    const supabase = ctx.supabase;
 
     // Chercher la réservation
     const { data: booking, error } = await supabase
@@ -63,14 +56,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Incrémenter le compteur de scans
+    // (la condition sur l'ancienne valeur évite que deux scans simultanés comptent pour un seul)
     const newScanCount = currentScans + 1;
-    await supabase
+    const updateQuery = supabase
       .from("bookings")
       .update({
         scan_count: newScanCount,
         last_scanned_at: new Date().toISOString(),
       })
       .eq("id", booking.id);
+    const { data: updated } = await (booking.scan_count == null
+      ? updateQuery.is("scan_count", null)
+      : updateQuery.eq("scan_count", currentScans)
+    ).select("id");
+
+    if (!updated || updated.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: "Billet en cours de validation sur un autre appareil. Réessayez.",
+      }, { status: 409 });
+    }
 
     // Récupérer le passager principal
     const primaryPassenger = booking.passengers?.find((p: any) => p.is_primary) || booking.passengers?.[0];

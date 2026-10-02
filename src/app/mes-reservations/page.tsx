@@ -79,30 +79,24 @@ export default function MesReservationsPage() {
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase || !searchValue.trim()) return;
+    if (!searchValue.trim()) return;
 
     setLoading(true);
     setSearched(true);
     setBookings([]);
 
-    if (searchMode === "reference") {
-      // Recherche par référence exacte
-      const { data } = await supabase
-        .from("bookings")
-        .select("*, passengers(*)")
-        .eq("reference", searchValue.trim().toUpperCase());
-
-      if (data) setBookings(data as BookingWithPassengers[]);
-    } else {
-      // Recherche par téléphone
-      const { data } = await supabase
-        .from("bookings")
-        .select("*, passengers(*)")
-        .eq("customer_phone", searchValue.trim())
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (data) setBookings(data as BookingWithPassengers[]);
+    // Recherche via le serveur (par référence ou par téléphone) :
+    // les réservations des autres clients ne sont pas lisibles directement.
+    try {
+      const res = await fetch("/api/reservations/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: searchMode, value: searchValue.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) setBookings(json.bookings as BookingWithPassengers[]);
+    } catch (err) {
+      console.error("Lookup error:", err);
     }
 
     setLoading(false);
