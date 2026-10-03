@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
+import { useRouter } from "next/navigation";
 
 interface ValidationResult {
   success: boolean;
@@ -20,6 +21,7 @@ interface ValidationResult {
 }
 
 export default function ScannerPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [manualCode, setManualCode] = useState("");
   const [result, setResult] = useState<ValidationResult | null>(null);
@@ -110,6 +112,23 @@ export default function ScannerPage() {
 
     setScanning(true);
     setResult(null);
+
+    // QR d'un colis (NZK-C:…) ou référence NZK-C-… : ouvrir la fiche du colis
+    if (/^NZK-C[:-]/i.test(reference.trim())) {
+      try {
+        const res = await authFetch("/api/admin/colis", { op: "scan", code: reference.trim() });
+        const json = await res.json();
+        if (json.success) {
+          router.push(`/admin/colis/${json.data.id}`);
+          return;
+        }
+        setResult({ success: false, message: json.message || "Colis introuvable." });
+      } catch {
+        setResult({ success: false, message: "Erreur de connexion. Vérifiez votre réseau." });
+      }
+      setScanning(false);
+      return;
+    }
 
     try {
       const response = await authFetch("/api/validate-ticket", {
