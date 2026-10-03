@@ -212,7 +212,6 @@ export default function PaiementPage() {
               })}
             </div>
           )}
-          </div>
         </div>
 
         {/* Montant à envoyer */}
