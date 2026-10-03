@@ -53,7 +53,7 @@ export function useAuth(): AuthState {
       .eq("id", userId)
       .single();
 
-    setIsAdmin(data?.role === "admin" || data?.role === "agent");
+    setIsAdmin(["admin", "finance", "manager", "agent"].includes(data?.role ?? ""));
   }
 
   return { user, loading, isAdmin };

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useCompany } from "@/lib/company";
 import { formatXAF } from "@/lib/utils";
 import { HoldTimer } from "@/components/HoldTimer";
 import { seatIsPremium, type BusLayoutConfig } from "@/lib/seat-layout";
@@ -30,13 +29,21 @@ export default function PaiementPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const company = useCompany();
+  const [payInfo, setPayInfo] = useState<{ agency_name: string; agency_city: string; accounts: { provider: "mtn" | "airtel"; number: string; holder_name: string }[] } | null>(null);
 
   useEffect(() => {
     const d = loadDraft();
     setDraft(d);
     if (!d || !d.passengers) return;
     setPhoneSender(d.passengers[0]?.phone || "");
+    // Agence de départ et ses comptes de paiement (déterminés par le serveur)
+    fetch(`/api/trips/${d.tripId}/payment?from=${d.from}&to=${d.to}${d.fromTerminal ? `&fromTerminal=${d.fromTerminal}` : ""}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json.success) return;
+        setPayInfo(json.payment);
+        if (json.payment.accounts.length) setMethod(json.payment.accounts[0].provider);
+      });
     fetch(`/api/trips/${d.tripId}?from=${d.from}&to=${d.to}`)
       .then((r) => r.json())
       .then((json) => json.success && setTrip(json.trip));
@@ -113,6 +120,7 @@ export default function PaiementPage() {
           passengers: draft.passengers,
           trip: trip && { fromName: trip.fromName, toName: trip.toName, date: trip.departDate, departTime: trip.departTime, busName: trip.bus.name },
           payment: { method, transactionCode: transactionCode.trim(), status: "pending" },
+          agencyName: json.agencyName,
         })
       );
       clearDraft();
@@ -124,8 +132,8 @@ export default function PaiementPage() {
     }
   }
 
-  const mtnNumber = company.phone_mtn;
-  const airtelNumber = company.phone_airtel;
+  const account = (p: "mtn" | "airtel") => payInfo?.accounts.find((a) => a.provider === p);
+  const selected = account(method);
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -173,34 +181,37 @@ export default function PaiementPage() {
         {/* Choix opérateur */}
         <div className="card">
           <h3 className="font-bold text-night mb-4">Opérateur de paiement</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => setMethod("mtn")}
-              className={`p-4 rounded-lg border-2 text-center transition-all ${
-                method === "mtn"
-                  ? "border-yellow-400 bg-yellow-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-2xl mb-1">📱</div>
-              <div className="font-bold text-sm">MTN MoMo</div>
-              <div className="text-xs text-gray-500 mt-1">{mtnNumber}</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMethod("airtel")}
-              className={`p-4 rounded-lg border-2 text-center transition-all ${
-                method === "airtel"
-                  ? "border-red-400 bg-red-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <div className="text-2xl mb-1">📱</div>
-              <div className="font-bold text-sm">Airtel Money</div>
-              <div className="text-xs text-gray-500 mt-1">{airtelNumber}</div>
-            </button>
-          </div>
+          {payInfo && (
+            <p className="text-sm text-gray-600 mb-3">
+              Paiement à l&apos;agence Nzoko de <strong>{payInfo.agency_name}</strong> ({payInfo.agency_city})
+            </p>
+          )}
+          {payInfo && payInfo.accounts.length === 0 ? (
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+              Aucun compte Mobile Money n&apos;est encore configuré pour cette agence. Contactez l&apos;agence ou réessayez plus tard.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {(["mtn", "airtel"] as const).map((p) => {
+                const acc = account(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    disabled={!acc}
+                    onClick={() => setMethod(p)}
+                    className={`p-4 rounded-lg border-2 text-center transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                      method === p ? (p === "mtn" ? "border-yellow-400 bg-yellow-50" : "border-red-400 bg-red-50") : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">📱</div>
+                    <div className="font-bold text-sm">{p === "mtn" ? "MTN MoMo" : "Airtel Money"}</div>
+                    <div className="text-xs text-gray-500 mt-1">{acc ? acc.number : "Indisponible"}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Montant à envoyer */}
@@ -208,8 +219,9 @@ export default function PaiementPage() {
           <p className="text-sm text-gray-300 mb-1">Montant à envoyer</p>
           <p className="text-3xl font-black text-accent-500">{formatXAF(amount)}</p>
           <p className="text-sm text-gray-300 mt-2">
-            Au numéro : <strong>{(method === "mtn" ? mtnNumber : airtelNumber) || "numéro communiqué en agence"}</strong>
+            Au numéro : <strong>{selected ? selected.number : "—"}</strong>
           </p>
+          {selected && <p className="text-xs text-gray-400 mt-1">Titulaire : {selected.holder_name}</p>}
         </div>
 
         {/* Formulaire de confirmation */}
@@ -263,7 +275,7 @@ export default function PaiementPage() {
         <div className="text-center">
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !selected}
             className="btn-accent text-lg px-10 disabled:opacity-50"
           >
             {submitting ? "Envoi en cours..." : "✅ Confirmer mon paiement"}

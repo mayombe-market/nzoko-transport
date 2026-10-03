@@ -11,10 +11,12 @@ import type { User } from "@supabase/supabase-js";
 import { LogoIcon } from "@/components/Logo";
 import { RevenueSummary } from "@/components/RevenueSummary";
 
+const ROLE_LABEL: Record<string, string> = { admin: "Administrateur", finance: "Finance", manager: "Responsable d'agence", agent: "Agent" };
+
 interface AgentProfile {
   id: string;
   full_name: string;
-  role: "admin" | "agent";
+  role: "admin" | "finance" | "manager" | "agent";
   phone: string | null;
   is_active: boolean;
   created_at: string;
@@ -38,7 +40,7 @@ export default function AdminPage() {
   const [newAgentEmail, setNewAgentEmail] = useState("");
   const [newAgentName, setNewAgentName] = useState("");
   const [newAgentPhone, setNewAgentPhone] = useState("");
-  const [newAgentRole, setNewAgentRole] = useState<"admin" | "agent">("agent");
+  const [newAgentRole, setNewAgentRole] = useState<"admin" | "finance" | "manager" | "agent">("agent");
   const [newAgentTerminal, setNewAgentTerminal] = useState("");
   const [newAgentPassword, setNewAgentPassword] = useState("");
   const [addingAgent, setAddingAgent] = useState(false);
@@ -291,7 +293,7 @@ export default function AdminPage() {
             <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
               profile.role === "admin" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
             }`}>
-              {profile.role === "admin" ? "Administrateur" : "Agent"}
+              {ROLE_LABEL[profile.role] ?? profile.role}
             </span>
           </p>
           </div>
@@ -359,6 +361,24 @@ export default function AdminPage() {
             <span className="text-xs text-gray-500">Passagers, colis et manifeste par bus</span>
           </span>
         </Link>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3 mb-6 -mt-3">
+        <Link href="/admin/paiements" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-green-600">
+          <span className="text-3xl">💳</span>
+          <span>
+            <span className="block font-bold text-night">Paiements à vérifier</span>
+            <span className="text-xs text-gray-500">Confirmer / refuser les paiements MTN et Airtel de votre agence</span>
+          </span>
+        </Link>
+        {["admin", "finance", "manager"].includes(profile.role) && (
+          <Link href="/admin/finance" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-accent-700">
+            <span className="text-3xl">📊</span>
+            <span>
+              <span className="block font-bold text-night">Finance</span>
+              <span className="text-xs text-gray-500">Revenus par agence, MTN / Airtel, comptes de paiement</span>
+            </span>
+          </Link>
+        )}
       </div>
       <div className="flex gap-1 border-b mb-6 overflow-x-auto">
         {[
@@ -479,11 +499,13 @@ export default function AdminPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Rôle</label>
                   <select
                     value={newAgentRole}
-                    onChange={(e) => setNewAgentRole(e.target.value as "admin" | "agent")}
+                    onChange={(e) => setNewAgentRole(e.target.value as typeof newAgentRole)}
                     className="input-field"
                   >
-                    <option value="agent">Agent (scanner, voir réservations)</option>
-                    <option value="admin">Administrateur (accès complet)</option>
+                    <option value="agent">Agent d&apos;agence (guichet, scanner, paiements de son agence)</option>
+                    <option value="manager">Responsable d&apos;agence (+ rapport financier de son agence)</option>
+                    <option value="finance">Finance Nzoko central (comptes de paiement, tout le réseau)</option>
+                    <option value="admin">Administrateur central (accès complet)</option>
                   </select>
                 </div>
                 <div>
@@ -536,7 +558,7 @@ export default function AdminPage() {
                         <p className="text-xs text-gray-500">
                           {agent.phone || "Pas de téléphone"} •
                           <span className={`ml-1 ${agent.role === "admin" ? "text-purple-600" : "text-blue-600"}`}>
-                            {agent.role === "admin" ? "Administrateur" : "Agent"}
+                            {ROLE_LABEL[agent.role] ?? agent.role}
                           </span>
                         </p>
                       </div>

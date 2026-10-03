@@ -13,6 +13,7 @@ interface ConfirmationData {
   passengers: { fullName: string; phone: string }[];
   trip: { fromName: string; toName: string; date: string; departTime: string; busName: string } | null;
   payment: { method: string; transactionCode: string; status: string };
+  agencyName?: string;
 }
 
 export default function ConfirmationPage() {
@@ -52,8 +53,10 @@ export default function ConfirmationPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
       <div className="text-center mb-8">
         <div className="text-5xl mb-3">✅</div>
-        <h1 className="font-display text-2xl font-semibold text-night mb-2">Réservation enregistrée</h1>
-        <p className="text-gray-600">Votre paiement est en cours de vérification par un agent Nzoko.</p>
+        <h1 className="font-display text-2xl font-semibold text-night mb-2">Paiement reçu pour vérification</h1>
+        <p className="text-gray-600">
+          L&apos;agence Nzoko{data.agencyName ? ` de ${data.agencyName}` : ""} doit maintenant confirmer votre transaction.
+        </p>
         <p className="text-gray-600 text-sm mt-1">
           Dès qu&apos;il est confirmé, votre billet avec son QR code sécurisé est disponible avec le lien ci-dessous.
         </p>
@@ -131,7 +134,7 @@ export default function ConfirmationPage() {
         </div>
 
         <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center text-sm text-yellow-800">
-          ⏳ En attente de confirmation par un agent
+          ⏳ En attente de confirmation par l&apos;agence{data.agencyName ? ` de ${data.agencyName}` : ""}
         </div>
       </div>
 

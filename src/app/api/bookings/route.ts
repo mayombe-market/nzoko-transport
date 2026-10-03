@@ -52,5 +52,6 @@ export async function POST(req: NextRequest) {
     totalPrice: data.total_price,
     unitPrice: data.unit_price,
     premiumSeats: data.premium_seats,
+    agencyName: data.agency_name,
   });
 }
