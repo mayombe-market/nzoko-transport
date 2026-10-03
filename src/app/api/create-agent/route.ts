@@ -31,7 +31,11 @@ export async function POST(req: NextRequest) {
       }, { status: 503 });
     }
 
-    const finalRole: "admin" | "agent" = role === "admin" ? "admin" : "agent";
+    const ROLES = ["admin", "finance", "manager", "agent"] as const;
+    const finalRole: (typeof ROLES)[number] = ROLES.includes(role) ? role : "agent";
+    if ((finalRole === "agent" || finalRole === "manager") && !terminalId) {
+      return NextResponse.json({ success: false, message: "Un agent ou un responsable doit être rattaché à une agence." }, { status: 400 });
+    }
 
     if (setupToken !== undefined) {
       // ---- Création du tout premier administrateur ----

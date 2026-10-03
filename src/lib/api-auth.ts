@@ -12,7 +12,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 export interface AgentContext {
   userId: string;
-  role: "admin" | "agent";
+  role: "admin" | "finance" | "manager" | "agent";
   terminalId: string | null;
   supabase: SupabaseClient;
 }
@@ -34,7 +34,7 @@ function deny(status: number, message: string) {
  */
 export async function requireAgent(
   req: NextRequest,
-  options: { adminOnly?: boolean } = {}
+  options: { adminOnly?: boolean; centralOnly?: boolean } = {}
 ): Promise<AgentContext | NextResponse> {
   const supabase = getServiceClient();
   if (!supabase) return deny(503, "Service non configuré.");
@@ -53,8 +53,9 @@ export async function requireAgent(
     .single();
 
   if (!profile || !profile.is_active) return deny(403, "Accès réservé aux agents actifs.");
-  if (profile.role !== "admin" && profile.role !== "agent") return deny(403, "Rôle non autorisé.");
+  if (!["admin", "finance", "manager", "agent"].includes(profile.role)) return deny(403, "Rôle non autorisé.");
   if (options.adminOnly && profile.role !== "admin") return deny(403, "Accès réservé aux administrateurs.");
+  if (options.centralOnly && !["admin", "finance"].includes(profile.role)) return deny(403, "Accès réservé à Nzoko central.");
 
   return {
     userId: userData.user.id,
