@@ -232,9 +232,9 @@ drop function if exists public.nzk_resolve_agency(text, text, text);
         '[{"full_name":"TEST Explicite","phone":"060008888","seat":"A13"}]'::jsonb, '060008888', null, 'mtn', 'TEST-EXPL-A13', '060008888');
   r := r || case when j->>'error' = 'AGENCE_INTROUVABLE' then '✅ ' else '❌ ' end || 'départ de Kinkala : ' || coalesce(j->>'error','ACCEPTÉE') || chr(10);
 
-  perform public.nzk_hold_seat(v_trip, 'A14', 'tok-expl-eeeeeeeeeeeeeeeeee');
+  perform public.nzk_hold_seat(v_trip, 'B10', 'tok-expl-eeeeeeeeeeeeeeeeee');
   j := public.nzk_create_booking(v_trip, 'brazzaville', 'pointenoire', 'mpila', 'centre-ville', 'tok-expl-eeeeeeeeeeeeeeeeee',
-        '[{"full_name":"TEST Explicite","phone":"060008888","seat":"A14"}]'::jsonb, '060008888', null, 'mtn', 'TEST-EXPL-A14', '060008888');
+        '[{"full_name":"TEST Explicite","phone":"060008888","seat":"B10"}]'::jsonb, '060008888', null, 'mtn', 'TEST-EXPL-B10', '060008888');
   r := r || case when (j->>'ok')::boolean and j->>'agency_name' = 'Mpila' then '✅ ' else '❌ ' end || 'réservation Mpila → Centre-ville : ' || coalesce(j->>'agency_name', j->>'error') || chr(10);
   select count(*) into n from public.bookings b join public.payments p on p.booking_id = b.id
   where b.id = (j->>'booking_id')::uuid and b.from_terminal = 'mpila' and b.to_terminal = 'centre-ville' and p.agency_id = 'mpila'
