@@ -1,6 +1,6 @@
 -- TEST À BLANC — agence bénéficiaire explicite (tout est annulé à la fin)
 do $test$
-declare r text := ''; a uuid; j jsonb; v_trip uuid; v_pc uuid; c text; n int;
+declare f record; r text := ''; a uuid; j jsonb; v_trip uuid; v_pc uuid; c text; n int;
 begin
   a := (select id from public.agent_profiles where role = 'admin' limit 1);
   -- ==================== MIGRATION ====================
