@@ -7,6 +7,9 @@ import { formatXAF } from "@/lib/utils";
 import { HoldTimer } from "@/components/HoldTimer";
 import { seatIsPremium, type BusLayoutConfig } from "@/lib/seat-layout";
 import { getHoldToken, loadDraft, clearDraft, type BookingDraft } from "@/lib/booking-session";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone } from "@/lib/phone";
+import { BookingSteps } from "@/components/BookingSteps";
 
 interface TripSummary {
   fromName: string;
@@ -82,6 +85,10 @@ export default function PaiementPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!draft?.passengers) return;
+    if (!isValidPhone(phoneSender)) {
+      setError("Le numéro qui a envoyé l'argent est invalide (+242 05 ou 06).");
+      return;
+    }
     if (!transactionCode.trim() || !phoneSender.trim()) {
       setError("Veuillez remplir le code de transaction et le numéro d'envoi.");
       return;
@@ -142,6 +149,7 @@ export default function PaiementPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <BookingSteps current="Paiement" />
       <button onClick={() => router.back()} className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
         ← Retour
       </button>
@@ -274,19 +282,7 @@ export default function PaiementPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Numéro qui a envoyé *
-              </label>
-              <input
-                type="tel"
-                value={phoneSender}
-                onChange={(e) => setPhoneSender(e.target.value)}
-                className="input-field"
-                placeholder="06 XXX XX XX"
-                required
-              />
-            </div>
+            <PhoneInput label="Numéro qui a envoyé l'argent" required value={phoneSender} onChange={(v) => setPhoneSender(v)} />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -306,7 +302,7 @@ export default function PaiementPage() {
         <div className="text-center">
           <button
             type="submit"
-            disabled={submitting || !selected}
+            disabled={submitting || !selected || !isValidPhone(phoneSender)}
             className="btn-accent text-lg px-10 disabled:opacity-50"
           >
             {submitting ? "Envoi en cours..." : "✅ Confirmer mon paiement"}

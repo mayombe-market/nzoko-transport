@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 // Page de configuration initiale — à utiliser UNE SEULE FOIS
 // pour créer le premier compte administrateur
@@ -20,6 +22,10 @@ export default function AdminSetupPage() {
 
   async function handleSetup(e: React.FormEvent) {
     e.preventDefault();
+    if (phone && !isValidPhone(phone)) {
+      setError("Numéro de téléphone invalide (+242 05 ou 06).");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Les mots de passe ne correspondent pas.");
@@ -135,13 +141,7 @@ export default function AdminSetupPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Téléphone
             </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="input-field"
-              placeholder="06 XXX XX XX"
-            />
+            <PhoneInput value={phone} onChange={(v) => setPhone(v)} placeholder="06 123 45 67" />
           </div>
 
           <div>

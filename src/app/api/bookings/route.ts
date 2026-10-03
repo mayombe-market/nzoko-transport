@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/api-auth";
 import { bookingErrorMessage } from "@/lib/booking-errors";
+import { normalizePhone } from "@/lib/phone";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -16,9 +17,19 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ success: false, message: "Service non configuré." }, { status: 503 });
 
-  const passengers = body.passengers.slice(0, 10).map((p: any) => ({
+  // Téléphones : format unique +242XXXXXXXXX, numéros invalides refusés
+  const customerPhone = normalizePhone(body.customerPhone);
+  const phoneSender = normalizePhone(body.phoneSender);
+  if (!customerPhone || !phoneSender) {
+    return NextResponse.json({ success: false, code: "TELEPHONE_INVALIDE", message: "Numéro de téléphone invalide (+242 05 ou 06)." }, { status: 400 });
+  }
+  const rawPassengers = body.passengers.slice(0, 10);
+  if (rawPassengers.some((p: any) => p?.phone && !normalizePhone(p.phone))) {
+    return NextResponse.json({ success: false, code: "TELEPHONE_INVALIDE", message: "Un numéro de passager est invalide." }, { status: 400 });
+  }
+  const passengers = rawPassengers.map((p: any) => ({
     full_name: String(p?.fullName ?? "").slice(0, 120),
-    phone: String(p?.phone ?? "").slice(0, 30),
+    phone: p?.phone ? normalizePhone(p.phone) : "",
     seat: String(p?.seat ?? "").slice(0, 4),
   }));
 
@@ -30,11 +41,11 @@ export async function POST(req: NextRequest) {
     p_to_terminal: body.toTerminal ? String(body.toTerminal) : null,
     p_token: String(body.token ?? ""),
     p_passengers: passengers,
-    p_customer_phone: String(body.customerPhone ?? "").slice(0, 30),
+    p_customer_phone: customerPhone,
     p_customer_email: body.customerEmail ? String(body.customerEmail).slice(0, 200) : null,
     p_method: String(body.method ?? ""),
     p_transaction_code: String(body.transactionCode ?? "").slice(0, 60),
-    p_phone_sender: String(body.phoneSender ?? "").slice(0, 30),
+    p_phone_sender: phoneSender,
   });
 
   if (error) {

@@ -32,13 +32,8 @@ export interface PublicBooking {
 export const PUBLIC_BOOKING_SELECT =
   "id, reference, from_city, to_city, from_terminal, to_terminal, date, departure_time, total_price, passenger_count, status, created_at, customer_phone, passengers(full_name, seat_number, is_primary)";
 
-/** "06 123 45 67" → "06 ••• •• 67" */
-export function maskPhone(phone: string | null | undefined): string | null {
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length < 4) return "••";
-  return `${digits.slice(0, 2)} ••• •• ${digits.slice(-2)}`;
-}
+import { maskPhone } from "./phone";
+export { maskPhone };
 
 /** "Jean Kouba Mbemba" → "Jean K. M." */
 export function maskName(name: string | null | undefined): string {

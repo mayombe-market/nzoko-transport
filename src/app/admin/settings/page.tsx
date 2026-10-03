@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 interface CompanySettings {
   id?: string;
@@ -64,14 +66,19 @@ export default function SettingsPage() {
       return;
     }
 
+    if ((settings.phone_mtn && !isValidPhone(settings.phone_mtn)) || (settings.phone_airtel && !isValidPhone(settings.phone_airtel))) {
+      setMessage("❌ Numéro de téléphone invalide (+242 05 ou 06).");
+      return;
+    }
+
     setSaving(true);
     setMessage("");
 
     const updateData = {
       name: settings.name,
       slogan: settings.slogan,
-      phone_mtn: settings.phone_mtn || null,
-      phone_airtel: settings.phone_airtel || null,
+      phone_mtn: normalizePhone(settings.phone_mtn),
+      phone_airtel: normalizePhone(settings.phone_airtel),
       email: settings.email || null,
       address: settings.address || null,
     };
@@ -154,25 +161,13 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 MTN Mobile Money
               </label>
-              <input
-                type="tel"
-                value={settings.phone_mtn}
-                onChange={(e) => setSettings({ ...settings, phone_mtn: e.target.value })}
-                className="input-field"
-                placeholder="06 XXX XX XX"
-              />
+              <PhoneInput value={settings.phone_mtn} onChange={(v) => setSettings({ ...settings, phone_mtn: v })} placeholder="06 123 45 67" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Airtel Money
               </label>
-              <input
-                type="tel"
-                value={settings.phone_airtel}
-                onChange={(e) => setSettings({ ...settings, phone_airtel: e.target.value })}
-                className="input-field"
-                placeholder="05 XXX XX XX"
-              />
+              <PhoneInput value={settings.phone_airtel} onChange={(v) => setSettings({ ...settings, phone_airtel: v })} placeholder="05 123 45 67" />
             </div>
           </div>
         </div>

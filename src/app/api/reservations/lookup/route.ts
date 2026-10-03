@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/api-auth";
 import { PUBLIC_BOOKING_SELECT, toPublicBooking, normalizeReference } from "@/lib/public-booking";
+import { phoneVariants } from "@/lib/phone";
 
 // Recherche publique « Mes réservations » (visiteur non connecté).
 // - par référence : réservation correspondante, noms complets (le billet les affiche)
@@ -28,14 +29,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === "phone") {
-      const phone = String(value ?? "").trim();
-      if (phone.replace(/\D/g, "").length < 8) {
+      const variants = phoneVariants(String(value ?? ""));
+      if (variants.length === 0) {
         return NextResponse.json({ success: false, message: "Numéro de téléphone invalide." }, { status: 400 });
       }
       const { data } = await supabase
         .from("bookings")
         .select(`${PUBLIC_BOOKING_SELECT}, access_key`)
-        .eq("customer_phone", phone)
+        .in("customer_phone", variants)
         .order("created_at", { ascending: false })
         .limit(20);
       // Le numéro du client sert de preuve : on renvoie le lien d'accès à chaque billet

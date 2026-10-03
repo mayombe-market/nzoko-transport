@@ -52,6 +52,12 @@
     @apply font-display text-2xl font-semibold text-night;
   }
 
+  /* Siège en cours de réservation par un autre client : hachures discrètes */
+  .seat-held {
+    background-color: #e5e4df;
+    background-image: repeating-linear-gradient(135deg, rgba(62, 62, 57, 0.12) 0 4px, transparent 4px 8px);
+  }
+
   /* Symbole éléphant Nzoko en filigrane : derrière le texte, jamais devant */
   .brand-watermark {
     @apply pointer-events-none select-none absolute opacity-[0.07];

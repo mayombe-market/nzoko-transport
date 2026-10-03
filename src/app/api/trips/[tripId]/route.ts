@@ -53,6 +53,8 @@ export async function GET(req: NextRequest, { params }: { params: { tripId: stri
       premiumSupplement: d.premium_supplement,
       bus: d.bus,
       taken: d.taken ?? [],
+      booked: d.booked ?? d.taken ?? [],
+      held: d.held ?? [],
     },
   });
 }

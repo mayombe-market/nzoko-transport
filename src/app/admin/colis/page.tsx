@@ -7,6 +7,8 @@ import { cityName } from "@/lib/cities";
 import { colisApi, openParcelPdf, useAgent, todayBrazzaville } from "@/lib/parcel-ui";
 import { ParcelList, type ParcelRow } from "@/components/colis/ParcelList";
 import { ParcelNav } from "@/components/colis/ParcelNav";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 const TABS = [
   { key: "nouveau", label: "➕ Nouveau colis" },
@@ -145,6 +147,10 @@ function NewParcelForm({ agentTerminal, terminals }: { agentTerminal: string | n
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!isValidPhone(form.sender_phone) || !isValidPhone(form.recipient_phone)) {
+      setError("Les numéros de l'expéditeur et du destinataire doivent être valides (+242 05 ou 06).");
+      return;
+    }
     setSubmitting(true);
     const r = await colisApi("create", { parcel: form });
     setSubmitting(false);
@@ -192,12 +198,12 @@ function NewParcelForm({ agentTerminal, terminals }: { agentTerminal: string | n
         <div className="card space-y-3">
           <h3 className="font-bold text-night">Expéditeur</h3>
           <input className="input-field" placeholder="Nom complet" value={form.sender_name} onChange={(e) => set("sender_name", e.target.value)} required maxLength={120} />
-          <input className="input-field" placeholder="Téléphone" type="tel" value={form.sender_phone} onChange={(e) => set("sender_phone", e.target.value)} required maxLength={30} />
+          <PhoneInput value={form.sender_phone} onChange={(v) => set("sender_phone", v)} required placeholder="06 123 45 67" />
         </div>
         <div className="card space-y-3">
           <h3 className="font-bold text-night">Destinataire</h3>
           <input className="input-field" placeholder="Nom complet" value={form.recipient_name} onChange={(e) => set("recipient_name", e.target.value)} required maxLength={120} />
-          <input className="input-field" placeholder="Téléphone" type="tel" value={form.recipient_phone} onChange={(e) => set("recipient_phone", e.target.value)} required maxLength={30} />
+          <PhoneInput value={form.recipient_phone} onChange={(v) => set("recipient_phone", v)} required placeholder="06 123 45 67" />
         </div>
       </div>
 
@@ -290,7 +296,7 @@ function NewParcelForm({ agentTerminal, terminals }: { agentTerminal: string | n
       </div>
 
       <div className="text-center">
-        <button type="submit" disabled={submitting || quote?.price == null} className="btn-accent text-lg px-10 disabled:opacity-50">
+        <button type="submit" disabled={submitting || quote?.price == null || !isValidPhone(form.sender_phone) || !isValidPhone(form.recipient_phone)} className="btn-accent text-lg px-10 disabled:opacity-50">
           {submitting ? "Enregistrement…" : "✅ Enregistrer le colis"}
         </button>
       </div>

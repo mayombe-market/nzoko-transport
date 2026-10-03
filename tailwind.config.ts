@@ -49,6 +49,27 @@ const config: Config = {
         },
         creme: "#f7f4ec",
       },
+      keyframes: {
+        "seat-pop": {
+          "0%": { transform: "scale(1)" },
+          "40%": { transform: "scale(1.18)" },
+          "100%": { transform: "scale(1.06)" },
+        },
+        "check-in": {
+          "0%": { transform: "scale(0)", opacity: "0" },
+          "70%": { transform: "scale(1.2)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        "fade-up": {
+          "0%": { transform: "translateY(6px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+      },
+      animation: {
+        "seat-pop": "seat-pop 260ms ease-out forwards",
+        "check-in": "check-in 300ms ease-out",
+        "fade-up": "fade-up 220ms ease-out",
+      },
       fontFamily: {
         sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
         display: ["var(--font-montserrat)", "Montserrat", "system-ui", "sans-serif"],
