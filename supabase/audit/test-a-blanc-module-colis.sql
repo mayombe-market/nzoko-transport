@@ -223,9 +223,9 @@ begin
   if v_qty not between 1 and 100 then return jsonb_build_object('ok', false, 'error', 'QUANTITE_INVALIDE'); end if;
   if v_weight is not null and (v_weight < 0 or v_weight > 2000) then return jsonb_build_object('ok', false, 'error', 'POIDS_INVALIDE'); end if;
   if v_value is not null and v_value < 0 then return jsonb_build_object('ok', false, 'error', 'VALEUR_INVALIDE'); end if;
-  if v_payer not in ('expediteur', 'destinataire') then return jsonb_build_object('ok', false, 'error', 'PAYEUR_INVALIDE'); end if;
+  if coalesce(v_payer, '') not in ('expediteur', 'destinataire') then return jsonb_build_object('ok', false, 'error', 'PAYEUR_INVALIDE'); end if;
   if v_payer = 'expediteur' then
-    if v_method not in ('especes', 'mtn', 'airtel') then return jsonb_build_object('ok', false, 'error', 'METHODE_INVALIDE'); end if;
+    if coalesce(v_method, '') not in ('especes', 'mtn', 'airtel') then return jsonb_build_object('ok', false, 'error', 'METHODE_INVALIDE'); end if;
     if v_method in ('mtn', 'airtel') and coalesce(length(v_tx), 0) < 4 then return jsonb_build_object('ok', false, 'error', 'CODE_TRANSACTION_INVALIDE'); end if;
   end if;
 
@@ -425,7 +425,7 @@ begin
   end if;
 
   if pc.payment_status = 'a_payer' then
-    if p_method not in ('especes', 'mtn', 'airtel') then return jsonb_build_object('ok', false, 'error', 'PAIEMENT_REQUIS', 'amount', pc.price); end if;
+    if coalesce(p_method, '') not in ('especes', 'mtn', 'airtel') then return jsonb_build_object('ok', false, 'error', 'PAIEMENT_REQUIS', 'amount', pc.price); end if;
     if p_method in ('mtn', 'airtel') and coalesce(length(trim(p_transaction_code)), 0) < 4 then
       return jsonb_build_object('ok', false, 'error', 'CODE_TRANSACTION_INVALIDE');
     end if;
