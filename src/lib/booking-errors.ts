@@ -20,7 +20,10 @@ const MESSAGES: Record<string, string> = {
   STATUT_INCOMPATIBLE: "Le statut de cette réservation ne permet pas cette action.",
   AUCUN_PAIEMENT_EN_ATTENTE: "Aucun paiement en attente pour cette réservation.",
   BILLET_DEJA_UTILISE: "Un billet de cette réservation a déjà été utilisé : annulation impossible.",
-  AGENCE_INTROUVABLE: "Aucune agence Nzoko n'est rattachée à ce départ.",
+  AGENCE_INTROUVABLE: "Paiement en ligne indisponible : aucune agence Nzoko dans votre ville de départ.",
+  AGENCE_DEPART_A_CHOISIR: "Choisissez votre agence (terminus) de départ : cette ville en compte plusieurs.",
+  AGENCE_ARRIVEE_A_CHOISIR: "Choisissez votre agence (terminus) d'arrivée : cette ville en compte plusieurs.",
+  AUCUN_COMPTE: "Paiement en ligne temporairement indisponible pour cette agence.",
   METHODE_INDISPONIBLE: "Ce moyen de paiement n'est pas disponible pour cette agence.",
   TRANSACTION_DEJA_UTILISEE: "Cette référence de transaction a déjà été utilisée.",
   // Colis

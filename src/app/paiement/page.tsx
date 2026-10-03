@@ -29,7 +29,12 @@ export default function PaiementPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [payInfo, setPayInfo] = useState<{ agency_name: string; agency_city: string; accounts: { provider: "mtn" | "airtel"; number: string; holder_name: string }[] } | null>(null);
+  const [payInfo, setPayInfo] = useState<{
+    status: "ok" | "indisponible" | "agence_a_choisir" | "aucune_agence";
+    agency_name?: string;
+    agency_city?: string;
+    accounts: { provider: "mtn" | "airtel"; number: string; holder_name: string }[];
+  } | null>(null);
 
   useEffect(() => {
     const d = loadDraft();
@@ -152,6 +157,34 @@ export default function PaiementPage() {
         </div>
       )}
 
+      {/* Agence bénéficiaire : affichée avant tout paiement */}
+      {payInfo?.status === "ok" && (
+        <div className="card mb-6 border-2 border-night bg-night text-white">
+          <p className="text-xs text-gray-300">Vous payez l&apos;agence Nzoko de</p>
+          <p className="text-xl font-bold text-accent-500">{payInfo.agency_name} — {payInfo.agency_city}</p>
+          <p className="text-xs text-gray-300 mt-1">Envoyez l&apos;argent uniquement aux numéros ci-dessous, qui sont ceux de cette agence.</p>
+        </div>
+      )}
+      {payInfo?.status === "indisponible" && (
+        <div className="card mb-6 border-2 border-red-300 bg-red-50 text-red-800">
+          <p className="font-bold">Paiement en ligne temporairement indisponible pour cette agence</p>
+          <p className="text-sm mt-1">L&apos;agence Nzoko de {payInfo.agency_name} ({payInfo.agency_city}) n&apos;a pas encore de compte Mobile Money actif. N&apos;envoyez pas d&apos;argent : contactez l&apos;agence ou réessayez plus tard.</p>
+        </div>
+      )}
+      {payInfo?.status === "agence_a_choisir" && (
+        <div className="card mb-6 border-2 border-red-300 bg-red-50 text-red-800">
+          <p className="font-bold">Choisissez votre agence de départ</p>
+          <p className="text-sm mt-1">Cette ville compte plusieurs agences Nzoko : refaites votre recherche en choisissant le terminus de départ et d&apos;arrivée.</p>
+          <Link href="/" className="btn-primary inline-block mt-3 text-sm">Refaire la recherche</Link>
+        </div>
+      )}
+      {payInfo?.status === "aucune_agence" && (
+        <div className="card mb-6 border-2 border-red-300 bg-red-50 text-red-800">
+          <p className="font-bold">Paiement en ligne indisponible pour ce départ</p>
+          <p className="text-sm mt-1">Aucune agence Nzoko dans votre ville de départ : réservez et payez auprès d&apos;une agence.</p>
+        </div>
+      )}
+
       {/* Étapes */}
       <div className="card mb-6 bg-accent-50 border-accent-200">
         <h2 className="font-bold text-night mb-4">📲 Comment payer ?</h2>
@@ -181,15 +214,13 @@ export default function PaiementPage() {
         {/* Choix opérateur */}
         <div className="card">
           <h3 className="font-bold text-night mb-4">Opérateur de paiement</h3>
-          {payInfo && (
+          {payInfo?.status === "ok" && (
             <p className="text-sm text-gray-600 mb-3">
-              Paiement à l&apos;agence Nzoko de <strong>{payInfo.agency_name}</strong> ({payInfo.agency_city})
+              Agence bénéficiaire : <strong>{payInfo.agency_name}</strong> ({payInfo.agency_city})
             </p>
           )}
-          {payInfo && payInfo.accounts.length === 0 ? (
-            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-              Aucun compte Mobile Money n&apos;est encore configuré pour cette agence. Contactez l&apos;agence ou réessayez plus tard.
-            </p>
+          {payInfo && payInfo.status !== "ok" ? (
+            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">Paiement en ligne indisponible (voir ci-dessus).</p>
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {(["mtn", "airtel"] as const).map((p) => {
