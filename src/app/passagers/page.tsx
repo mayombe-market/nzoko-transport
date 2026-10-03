@@ -7,6 +7,9 @@ import { formatXAF } from "@/lib/utils";
 import { HoldTimer } from "@/components/HoldTimer";
 import { seatIsPremium, type BusLayoutConfig } from "@/lib/seat-layout";
 import { loadDraft, saveDraft, type BookingDraft } from "@/lib/booking-session";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone } from "@/lib/phone";
+import { BookingSteps } from "@/components/BookingSteps";
 
 interface PassengerInfo {
   fullName: string;
@@ -65,8 +68,12 @@ function PassengersContent() {
       setError("Veuillez entrer le nom complet de chaque passager.");
       return;
     }
-    if (passengerList[0].phone.replace(/\D/g, "").length < 8) {
-      setError("Veuillez entrer un numéro de téléphone valide pour le passager principal.");
+    if (!isValidPhone(passengerList[0].phone)) {
+      setError("Veuillez entrer un numéro de téléphone valide pour le passager principal (+242 05 ou 06).");
+      return;
+    }
+    if (passengerList.some((p) => p.phone && !isValidPhone(p.phone))) {
+      setError("Un numéro de téléphone est invalide : corrigez-le ou laissez-le vide.");
       return;
     }
     saveDraft({ ...draft!, passengers: passengerList });
@@ -78,6 +85,7 @@ function PassengersContent() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <BookingSteps current="Passager" />
       <button onClick={() => router.back()} className="text-night hover:text-accent-700 text-sm mb-4 inline-flex items-center gap-1">
         ← Retour au plan du bus
       </button>
@@ -112,20 +120,12 @@ function PassengersContent() {
                   maxLength={120}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Téléphone {i === 0 ? "*" : "(optionnel)"}
-                </label>
-                <input
-                  type="tel"
-                  value={passenger.phone}
-                  onChange={(e) => updatePassenger(i, "phone", e.target.value)}
-                  className="input-field"
-                  placeholder="06 XXX XX XX"
-                  required={i === 0}
-                  maxLength={30}
-                />
-              </div>
+              <PhoneInput
+                label={i === 0 ? "Téléphone" : "Téléphone (optionnel)"}
+                required={i === 0}
+                value={passenger.phone}
+                onChange={(v) => updatePassenger(i, "phone", v)}
+              />
             </div>
           </div>
         ))}

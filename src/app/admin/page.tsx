@@ -10,6 +10,8 @@ import { LinesTab } from "@/components/LinesTab";
 import type { User } from "@supabase/supabase-js";
 import { LogoIcon } from "@/components/Logo";
 import { RevenueSummary } from "@/components/RevenueSummary";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 const ROLE_LABEL: Record<string, string> = { admin: "Administrateur", finance: "Finance", manager: "Responsable d'agence", agent: "Agent" };
 
@@ -153,6 +155,10 @@ export default function AdminPage() {
   async function handleAddAgent(e: React.FormEvent) {
     e.preventDefault();
     if (!supabase) return;
+    if (newAgentPhone && !isValidPhone(newAgentPhone)) {
+      setAgentMessage("❌ Numéro de téléphone invalide (+242 05 ou 06).");
+      return;
+    }
 
     setAddingAgent(true);
     setAgentMessage("");
@@ -475,13 +481,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
-                  <input
-                    type="tel"
-                    value={newAgentPhone}
-                    onChange={(e) => setNewAgentPhone(e.target.value)}
-                    className="input-field"
-                    placeholder="06 XXX XX XX"
-                  />
+                  <PhoneInput value={newAgentPhone} onChange={(v) => setNewAgentPhone(v)} placeholder="06 123 45 67" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe *</label>

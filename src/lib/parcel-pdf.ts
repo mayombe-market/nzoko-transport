@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import { LOGO_FULL_PNG_BASE64, LOGO_ELEPHANT_PNG_BASE64 } from "./brand-assets";
+import { maskPhone, displayPhone } from "./phone";
 
 // ============================================================
 // Documents colis : étiquette à coller (100 × 70 mm) et reçu expéditeur (A5)
@@ -39,10 +40,7 @@ const GRIS: [number, number, number] = [120, 120, 112];
 export const PARCEL_QR_PREFIX = "NZK-C:";
 const METHOD: Record<string, string> = { especes: "Espèces", mtn: "MTN MoMo", airtel: "Airtel Money" };
 
-export const maskPhone = (p: string) => {
-  const d = (p || "").replace(/\D/g, "");
-  return d.length < 4 ? "••" : `${d.slice(0, 2)} ••• •• ${d.slice(-2)}`;
-};
+export { maskPhone } from "./phone";
 const xaf = (n: number) => `${n.toLocaleString("fr-FR").replace(/ | /g, " ")} FCFA`;
 const dt = (iso: string) => {
   const d = new Date(iso);
@@ -87,7 +85,7 @@ export async function generateParcelLabel(p: ParcelDoc): Promise<ArrayBuffer> {
   doc.text(doc.splitTextToSize(p.recipient_name, 56)[0], 41, 44);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(maskPhone(p.recipient_phone), 41, 49);
+  doc.text(maskPhone(p.recipient_phone) ?? "", 41, 49);
 
   doc.setDrawColor(...OR);
   doc.setLineWidth(0.5);
@@ -157,9 +155,9 @@ export async function generateParcelReceipt(p: ParcelDoc, pickupCode: string | n
     doc.text(doc.splitTextToSize(value, w)[0] ?? "", x, y + 5);
   };
   field("Expéditeur", p.sender_name, 10, 63);
-  field("Téléphone", p.sender_phone, 80, 63);
+  field("Téléphone", displayPhone(p.sender_phone), 80, 63);
   field("Destinataire", p.recipient_name, 10, 76);
-  field("Téléphone", p.recipient_phone, 80, 76);
+  field("Téléphone", displayPhone(p.recipient_phone), 80, 76);
   field("Contenu", `${p.category_label} — ${p.description}`, 10, 89, 128);
   field("Quantité", String(p.quantity), 10, 102);
   field("Poids", p.weight_kg ? `${p.weight_kg} kg` : "—", 45, 102);

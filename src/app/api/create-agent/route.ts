@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, requireAgent, isDenied } from "@/lib/api-auth";
+import { normalizePhone } from "@/lib/phone";
 
 // Création d'un compte agent/admin.
 // - Cas normal : réservé à un administrateur connecté.
@@ -14,6 +15,10 @@ export async function POST(req: NextRequest) {
         success: false,
         message: "Email, mot de passe et nom sont requis.",
       }, { status: 400 });
+    }
+
+    if (phone && !normalizePhone(phone)) {
+      return NextResponse.json({ success: false, message: "Numéro de téléphone invalide (+242 05 ou 06)." }, { status: 400 });
     }
 
     if (String(password).length < 8) {
@@ -69,7 +74,7 @@ export async function POST(req: NextRequest) {
       email_confirm: true, // Confirmer directement l'email
       user_metadata: {
         full_name: fullName,
-        phone: phone || null,
+        phone: normalizePhone(phone),
       },
     });
 
@@ -100,7 +105,7 @@ export async function POST(req: NextRequest) {
       .insert({
         id: userData.user.id,
         full_name: fullName,
-        phone: phone || null,
+        phone: normalizePhone(phone),
         role: finalRole,
         terminal_id: terminalId || null,
         is_active: true,

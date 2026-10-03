@@ -43,11 +43,11 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-gray-300">
               <li className="flex items-center gap-2">
                 <span>📞</span>
-                <span>MTN : 06 XXX XX XX</span>
+                <span>MTN : +242 06 XXX XX XX</span>
               </li>
               <li className="flex items-center gap-2">
                 <span>📞</span>
-                <span>Airtel : 05 XXX XX XX</span>
+                <span>Airtel : +242 05 XXX XX XX</span>
               </li>
               <li className="flex items-center gap-2">
                 <span>📍</span>

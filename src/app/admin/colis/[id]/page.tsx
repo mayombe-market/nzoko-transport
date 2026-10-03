@@ -6,6 +6,7 @@ import { formatXAF } from "@/lib/utils";
 import { ACTION_LABEL, METHOD_LABEL, PARCEL_STATUS, colisApi, formatDateTime, openParcelPdf, todayBrazzaville, useAgent } from "@/lib/parcel-ui";
 import { ParcelStatusBadge } from "@/components/colis/ParcelList";
 import { ParcelNav } from "@/components/colis/ParcelNav";
+import { displayPhone } from "@/lib/phone";
 
 interface Detail {
   id: string;
@@ -130,12 +131,12 @@ export default function ParcelDetailPage() {
           <div>
             <p className="text-xs text-gray-500">EXPÉDITEUR</p>
             <p className="font-semibold">{p.sender_name}</p>
-            <p>{p.sender_phone}</p>
+            <p>{displayPhone(p.sender_phone)}</p>
           </div>
           <div>
             <p className="text-xs text-gray-500">DESTINATAIRE</p>
             <p className="font-semibold">{p.recipient_name}</p>
-            <p>{p.recipient_phone}</p>
+            <p>{displayPhone(p.recipient_phone)}</p>
           </div>
         </div>
         {p.trip && (

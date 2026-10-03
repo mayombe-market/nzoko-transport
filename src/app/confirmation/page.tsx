@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { formatXAF } from "@/lib/utils";
 import { LogoIcon } from "@/components/Logo";
+import { BookingSteps } from "@/components/BookingSteps";
 
 interface ConfirmationData {
   reference: string;
@@ -51,6 +52,7 @@ export default function ConfirmationPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+      <BookingSteps current="Vérification" />
       <div className="text-center mb-8">
         <div className="text-5xl mb-3">✅</div>
         <h1 className="font-display text-2xl font-semibold text-night mb-2">Paiement reçu pour vérification</h1>

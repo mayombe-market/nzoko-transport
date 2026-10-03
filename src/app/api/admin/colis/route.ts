@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAgent, isDenied } from "@/lib/api-auth";
 import { bookingErrorMessage } from "@/lib/booking-errors";
+import { normalizePhone } from "@/lib/phone";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,13 +69,18 @@ export async function POST(req: NextRequest) {
     }
     case "create": {
       const p = body.parcel ?? {};
+      const senderPhone = normalizePhone(p.sender_phone);
+      const recipientPhone = normalizePhone(p.recipient_phone);
+      if (!senderPhone || !recipientPhone) {
+        return NextResponse.json({ success: false, code: "TELEPHONE_INVALIDE", message: "Numéro de téléphone invalide (+242 05 ou 06)." }, { status: 400 });
+      }
       const r = await rpc("nzk_parcel_create", {
         p_agent: agent,
         p: {
           sender_name: s(p.sender_name, 120),
-          sender_phone: s(p.sender_phone, 30),
+          sender_phone: senderPhone,
           recipient_name: s(p.recipient_name, 120),
-          recipient_phone: s(p.recipient_phone, 30),
+          recipient_phone: recipientPhone,
           from_terminal: s(p.from_terminal, 40),
           to_terminal: s(p.to_terminal, 40),
           category_id: s(p.category_id, 40),

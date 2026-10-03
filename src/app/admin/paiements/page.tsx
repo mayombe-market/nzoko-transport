@@ -6,6 +6,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import { formatXAF } from "@/lib/utils";
 import { formatDateTime, useAgent } from "@/lib/parcel-ui";
 import { LogoIcon } from "@/components/Logo";
+import { displayPhone } from "@/lib/phone";
 
 interface PaymentRow {
   payment_id: string;
@@ -130,7 +131,7 @@ export default function PaiementsPage() {
                   <p className="text-xl font-black text-accent-700">{formatXAF(r.amount)}</p>
                   <p className="text-sm font-semibold">{r.method === "mtn" ? "MTN MoMo" : "Airtel Money"}</p>
                   <p className="font-mono text-sm">{r.transaction_code}</p>
-                  <p className="text-xs text-gray-500">depuis {r.phone_sender}</p>
+                  <p className="text-xs text-gray-500">depuis {displayPhone(r.phone_sender)}</p>
                 </div>
               </div>
               {r.status === "pending" && (

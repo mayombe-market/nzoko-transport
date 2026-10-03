@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatXAF } from "@/lib/utils";
 import { PARCEL_STATUS, formatDateTime } from "@/lib/parcel-ui";
+import { displayPhone } from "@/lib/phone";
 
 export interface ParcelRow {
   id: string;
@@ -45,7 +46,7 @@ export function ParcelList({ rows, empty }: { rows: ParcelRow[] | null; empty: s
                 {p.from_city_name} → <strong>{p.to_city_name}</strong> ({p.to_terminal_name}) · {p.quantity} × {p.description}
               </p>
               <p className="text-xs text-gray-500 mt-0.5 truncate">
-                {p.sender_name} → {p.recipient_name} · {p.recipient_phone}
+                {p.sender_name} → {p.recipient_name} · {displayPhone(p.recipient_phone)}
                 {p.trip && ` · Bus ${p.trip.departure_time} du ${p.trip.date}`}
               </p>
             </div>

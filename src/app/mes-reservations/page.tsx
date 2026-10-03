@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone } from "@/lib/phone";
 
 interface BookingWithPassengers {
   id: string;
@@ -189,7 +191,7 @@ export default function MesReservationsPage() {
 
         <div className="flex gap-2 mb-4">
           <button
-            onClick={() => setSearchMode("phone")}
+            onClick={() => { setSearchMode("phone"); setSearchValue(""); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               searchMode === "phone" ? "bg-night text-white" : "bg-gray-100 text-gray-600"
             }`}
@@ -197,7 +199,7 @@ export default function MesReservationsPage() {
             Par téléphone
           </button>
           <button
-            onClick={() => setSearchMode("reference")}
+            onClick={() => { setSearchMode("reference"); setSearchValue(""); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               searchMode === "reference" ? "bg-night text-white" : "bg-gray-100 text-gray-600"
             }`}
@@ -206,16 +208,20 @@ export default function MesReservationsPage() {
           </button>
         </div>
 
-        <form onSubmit={handleSearch} className="flex gap-3">
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            className={`input-field flex-1 ${searchMode === "reference" ? "font-mono uppercase tracking-wider" : ""}`}
-            placeholder={searchMode === "phone" ? "06 XXX XX XX" : "NZK-260624-XXXX"}
-            required
-          />
-          <button type="submit" disabled={loading} className="btn-accent disabled:opacity-50">
+        <form onSubmit={handleSearch} className="flex gap-3 items-start">
+          {searchMode === "phone" ? (
+            <PhoneInput className="flex-1" required value={searchValue} onChange={(v) => setSearchValue(v)} />
+          ) : (
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="input-field flex-1 font-mono uppercase tracking-wider"
+              placeholder="NZK-260624-XXXX"
+              required
+            />
+          )}
+          <button type="submit" disabled={loading || (searchMode === "phone" && !isValidPhone(searchValue))} className="btn-accent disabled:opacity-50 py-3">
             {loading ? "..." : "Rechercher"}
           </button>
         </form>

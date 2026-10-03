@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { Suspense } from "react";
 import { LogoIcon } from "@/components/Logo";
+import { PhoneInput } from "@/components/PhoneInput";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 
 function SignupContent() {
   const router = useRouter();
@@ -23,6 +25,10 @@ function SignupContent() {
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (phone && !isValidPhone(phone)) {
+      setError("Numéro de téléphone invalide (+242 05 ou 06).");
+      return;
+    }
     if (!supabase) {
       setError("Supabase n'est pas configuré.");
       return;
@@ -47,7 +53,7 @@ function SignupContent() {
       options: {
         data: {
           full_name: fullName,
-          phone: phone,
+          phone: normalizePhone(phone),
         },
       },
     });
@@ -136,13 +142,7 @@ function SignupContent() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Téléphone
             </label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="input-field"
-              placeholder="06 XXX XX XX"
-            />
+            <PhoneInput value={phone} onChange={(v) => setPhone(v)} placeholder="06 123 45 67" />
           </div>
 
           <div>

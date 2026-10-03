@@ -7,6 +7,8 @@ import { formatXAF } from "@/lib/utils";
 import { cityName } from "@/lib/cities";
 import { formatDateTime, todayBrazzaville, useAgent } from "@/lib/parcel-ui";
 import { LogoIcon } from "@/components/Logo";
+import { PhoneInput } from "@/components/PhoneInput";
+import { displayPhone, isValidPhone } from "@/lib/phone";
 
 interface AgencyReport {
   agency_id: string;
@@ -207,7 +209,7 @@ export default function FinancePage() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Numéro</label>
-            <input className="input-field" value={edit.number} onChange={(e) => setEdit({ ...edit, number: e.target.value })} required />
+            <PhoneInput value={edit.number} onChange={(v) => setEdit({ ...edit, number: v })} required placeholder={edit.provider === "airtel" ? "05 123 45 67" : "06 123 45 67"} />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Titulaire</label>
@@ -215,7 +217,7 @@ export default function FinancePage() {
           </div>
           <div className="flex items-center gap-2">
             <label className="text-xs flex items-center gap-1"><input type="checkbox" checked={edit.is_active} onChange={(e) => setEdit({ ...edit, is_active: e.target.checked })} /> Actif</label>
-            <button className="btn-accent text-sm px-3 py-2">Enregistrer</button>
+            <button disabled={!isValidPhone(edit.number)} className="btn-accent text-sm px-3 py-2 disabled:opacity-50">Enregistrer</button>
             <button type="button" onClick={() => setEdit(null)} className="text-sm text-gray-500">Annuler</button>
           </div>
         </form>
@@ -236,7 +238,7 @@ export default function FinancePage() {
                 <tr key={a.id} className="border-b last:border-0">
                   <td className="py-2">{a.terminal_name} <span className="text-xs text-gray-500">{a.city}</span></td>
                   <td>{a.provider === "mtn" ? "MTN MoMo" : "Airtel Money"}</td>
-                  <td className="font-mono">{a.number}</td>
+                  <td className="font-mono">{displayPhone(a.number)}</td>
                   <td>{a.holder_name}</td>
                   <td>{a.is_active ? <span className="text-green-700">Actif</span> : <span className="text-gray-400">Inactif</span>}</td>
                   <td className="text-xs text-gray-500">{a.updated_at ? formatDateTime(a.updated_at) : ""}{a.updated_by ? ` · ${a.updated_by}` : ""}</td>
