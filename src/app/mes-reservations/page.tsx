@@ -208,7 +208,7 @@ export default function MesReservationsPage() {
           </button>
         </div>
 
-        <form onSubmit={handleSearch} className="flex gap-3 items-start">
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 sm:items-start">
           {searchMode === "phone" ? (
             <PhoneInput className="flex-1" required value={searchValue} onChange={(v) => setSearchValue(v)} />
           ) : (

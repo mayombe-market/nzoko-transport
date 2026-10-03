@@ -4,7 +4,7 @@ const STEPS = ["Trajet", "Siège", "Passager", "Paiement", "Vérification", "Bil
 export function BookingSteps({ current }: { current: (typeof STEPS)[number] }) {
   const index = STEPS.indexOf(current);
   return (
-    <ol className="flex items-center gap-1 overflow-x-auto pb-1 mb-5 text-[11px] sm:text-xs" aria-label="Étapes de la réservation">
+    <ol className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pb-1 mb-5 text-[11px] sm:text-xs" aria-label="Étapes de la réservation">
       {STEPS.map((step, i) => (
         <li key={step} className="flex items-center gap-1 shrink-0">
           <span
