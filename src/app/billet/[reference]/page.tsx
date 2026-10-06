@@ -29,6 +29,9 @@ interface TicketData {
   authorized: boolean;
   customer_phone_masked: string | null;
   passengers: TicketPassenger[];
+  trip_status?: string | null;
+  delay_minutes?: number;
+  trip_status_reason?: string | null;
 }
 
 const QR_PREFIX = "NZK-T:";
@@ -38,6 +41,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   confirmed: { label: "✅ Confirmé", cls: "bg-green-100 text-green-700" },
   pending: { label: "⏳ Paiement en cours de vérification", cls: "bg-yellow-100 text-yellow-700" },
   cancelled: { label: "❌ Annulé", cls: "bg-red-100 text-red-700" },
+  expired: { label: "⌛ Expiré — paiement non confirmé", cls: "bg-gray-100 text-gray-600" },
 };
 
 function BilletContent() {
@@ -116,6 +120,17 @@ function BilletContent() {
         </div>
 
         <Watermark className="right-2 top-28 w-48" />
+
+        {ticket.trip_status === "cancelled" && (
+          <div className="relative mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            ❌ Départ annulé{ticket.trip_status_reason ? ` — ${ticket.trip_status_reason}` : ""}. Contactez votre agence Nzoko.
+          </div>
+        )}
+        {ticket.trip_status !== "cancelled" && (ticket.delay_minutes ?? 0) > 0 && (
+          <div className="relative mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            ⏱ Départ retardé de {ticket.delay_minutes} min{ticket.trip_status_reason ? ` (${ticket.trip_status_reason})` : ""}.
+          </div>
+        )}
 
         <div className="relative grid grid-cols-2 gap-4 mb-6">
           <div>

@@ -2,42 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-
-// Données statiques des villes (sera remplacé par Supabase plus tard)
-const CITIES = [
-  { id: "brazzaville", name: "Brazzaville", region: "Brazzaville" },
-  { id: "djambala", name: "Djambala", region: "Plateaux" },
-  { id: "dolisie", name: "Dolisie", region: "Niari" },
-  { id: "gamboma", name: "Gamboma", region: "Plateaux" },
-  { id: "kinkala", name: "Kinkala", region: "Pool" },
-  { id: "loudima", name: "Loudima", region: "Bouenza" },
-  { id: "madingou", name: "Madingou", region: "Bouenza" },
-  { id: "makoua", name: "Makoua", region: "Cuvette" },
-  { id: "mindouli", name: "Mindouli", region: "Pool" },
-  { id: "nkayi", name: "Nkayi", region: "Bouenza" },
-  { id: "owando", name: "Owando", region: "Cuvette" },
-  { id: "oyo", name: "Oyo", region: "Cuvette" },
-  { id: "ouesso", name: "Ouesso", region: "Sangha" },
-  { id: "pointenoire", name: "Pointe-Noire", region: "Pointe-Noire" },
-  { id: "sibiti", name: "Sibiti", region: "Lékoumou" },
-];
-
-// Terminus par ville (gares routières)
-const TERMINALS: Record<string, { id: string; name: string }[]> = {
-  brazzaville: [
-    { id: "chateau-deau", name: "Château d'eau" },
-    { id: "mpila", name: "Mpila" },
-    { id: "mafouta", name: "Mafouta" },
-  ],
-  pointenoire: [
-    { id: "centre-ville", name: "Centre-ville" },
-    { id: "nkouikou", name: "Nkouikou" },
-    { id: "ngoyo", name: "Ngoyo" },
-  ],
-};
+import { useNetwork } from "@/lib/network";
 
 export function SearchForm() {
   const router = useRouter();
+  // Villes et agences lues en base : une nouvelle agence apparaît sans redéploiement
+  const { cities: CITIES, terminalsOf, cityLabel } = useNetwork();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [fromTerminal, setFromTerminal] = useState("");
@@ -49,17 +19,20 @@ export function SearchForm() {
   const today = new Date().toISOString().split("T")[0];
 
   // Vérifier si une ville a des terminus
-  const fromTerminals = TERMINALS[from] || [];
-  const toTerminals = TERMINALS[to] || [];
+  const fromTerminals = from ? terminalsOf(from) : [];
+  const toTerminals = to ? terminalsOf(to) : [];
 
+  // Une ville avec une seule agence : elle est choisie d'office
   function handleFromChange(value: string) {
     setFrom(value);
-    setFromTerminal(""); // Reset terminal quand on change de ville
+    const list = terminalsOf(value);
+    setFromTerminal(list.length === 1 ? list[0].id : "");
   }
 
   function handleToChange(value: string) {
     setTo(value);
-    setToTerminal(""); // Reset terminal quand on change de ville
+    const list = terminalsOf(value);
+    setToTerminal(list.length === 1 ? list[0].id : "");
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -70,11 +43,11 @@ export function SearchForm() {
       return;
     }
     if (fromTerminals.length > 0 && !fromTerminal) {
-      alert("Veuillez choisir un terminus de départ.");
+      alert("Veuillez choisir votre agence de départ.");
       return;
     }
     if (toTerminals.length > 0 && !toTerminal) {
-      alert("Veuillez choisir un terminus d'arrivée.");
+      alert("Veuillez choisir votre agence d'arrivée.");
       return;
     }
 
@@ -106,7 +79,7 @@ export function SearchForm() {
             <option value="">Choisir...</option>
             {CITIES.map((city) => (
               <option key={city.id} value={city.id} disabled={city.id === to}>
-                {city.name} ({city.region})
+                {city.name}{city.region && city.region !== city.name ? ` (${city.region})` : ""}
               </option>
             ))}
           </select>
@@ -126,7 +99,7 @@ export function SearchForm() {
             <option value="">Choisir...</option>
             {CITIES.map((city) => (
               <option key={city.id} value={city.id} disabled={city.id === from}>
-                {city.name} ({city.region})
+                {city.name}{city.region && city.region !== city.name ? ` (${city.region})` : ""}
               </option>
             ))}
           </select>
@@ -166,13 +139,13 @@ export function SearchForm() {
         </div>
       </div>
 
-      {/* Terminus (apparaît seulement si la ville a plusieurs gares) */}
+      {/* Agences Nzoko de la ville (lues en base) */}
       {(fromTerminals.length > 0 || toTerminals.length > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
           {fromTerminals.length > 0 && (
             <div>
               <label className="block text-sm font-bold text-night mb-2">
-                📌 Terminus de départ à {CITIES.find(c => c.id === from)?.name}
+                📌 Agence de départ à {cityLabel(from)}
               </label>
               <select
                 value={fromTerminal}
@@ -180,7 +153,7 @@ export function SearchForm() {
                 className="input-field text-lg"
                 required
               >
-                <option value="">Choisir le terminus...</option>
+                <option value="">Choisir l&apos;agence...</option>
                 {fromTerminals.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -193,7 +166,7 @@ export function SearchForm() {
           {toTerminals.length > 0 && (
             <div>
               <label className="block text-sm font-bold text-night mb-2">
-                📌 Terminus d&apos;arrivée à {CITIES.find(c => c.id === to)?.name}
+                📌 Agence d&apos;arrivée à {cityLabel(to)}
               </label>
               <select
                 value={toTerminal}
@@ -201,7 +174,7 @@ export function SearchForm() {
                 className="input-field text-lg"
                 required
               >
-                <option value="">Choisir le terminus...</option>
+                <option value="">Choisir l&apos;agence...</option>
                 {toTerminals.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}

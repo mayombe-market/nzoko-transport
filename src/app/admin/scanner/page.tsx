@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { StaffGate } from "@/components/StaffGate";
 import { authFetch } from "@/lib/auth-fetch";
 import { useRouter } from "next/navigation";
 
@@ -20,7 +21,7 @@ interface ValidationResult {
   };
 }
 
-export default function ScannerPage() {
+function ScannerPageContent() {
   const router = useRouter();
   const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [manualCode, setManualCode] = useState("");
@@ -312,5 +313,13 @@ export default function ScannerPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ScannerPage() {
+  return (
+    <StaffGate>
+      <ScannerPageContent />
+    </StaffGate>
   );
 }

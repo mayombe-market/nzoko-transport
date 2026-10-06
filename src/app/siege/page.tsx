@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { formatXAF } from "@/lib/utils";
-import { TERMINAL_NAMES } from "@/lib/cities";
+import { useNetwork } from "@/lib/network";
 import { LOGO_ELEPHANT_SRC } from "@/components/Logo";
 import { HoldTimer } from "@/components/HoldTimer";
 import { BookingSteps } from "@/components/BookingSteps";
@@ -25,6 +25,7 @@ interface TripDetail {
   taken: string[];
   booked?: string[];
   held?: string[];
+  status?: string;
 }
 
 type SeatState = "available" | "selected" | "booked" | "held";
@@ -39,6 +40,7 @@ function SeatContent() {
   const fromTerminal = params.get("fromTerminal") || "";
   const toTerminal = params.get("toTerminal") || "";
 
+  const { terminalLabel } = useNetwork();
   const [trip, setTrip] = useState<TripDetail | null>(null);
   const [loadError, setLoadError] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
@@ -52,6 +54,10 @@ function SeatContent() {
     const json = await res.json().catch(() => null);
     if (!json?.success) {
       setLoadError(json?.message || "Départ introuvable.");
+      return null;
+    }
+    if (json.trip.status === "cancelled") {
+      setLoadError("Ce départ est annulé. Choisissez un autre départ.");
       return null;
     }
     setTrip(json.trip);
@@ -159,8 +165,8 @@ function SeatContent() {
   const seatPrice = (s: string) => trip.price + (seatIsPremium(trip.bus, s) ? trip.premiumSupplement : 0);
   const total = selected.reduce((sum, s) => sum + seatPrice(s), 0);
   const ready = selected.length === passengers && pending.length === 0;
-  const fromLabel = `${trip.fromName}${fromTerminal ? ` — ${TERMINAL_NAMES[fromTerminal] ?? fromTerminal}` : ""}`;
-  const toLabel = `${trip.toName}${toTerminal ? ` — ${TERMINAL_NAMES[toTerminal] ?? toTerminal}` : ""}`;
+  const fromLabel = `${trip.fromName}${fromTerminal ? ` — ${terminalLabel(fromTerminal)}` : ""}`;
+  const toLabel = `${trip.toName}${toTerminal ? ` — ${terminalLabel(toTerminal)}` : ""}`;
   const dateLabel = new Date(trip.departDate + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
 
   function handleContinue() {

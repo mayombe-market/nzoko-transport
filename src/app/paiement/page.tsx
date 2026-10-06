@@ -10,6 +10,7 @@ import { getHoldToken, loadDraft, clearDraft, type BookingDraft } from "@/lib/bo
 import { PhoneInput } from "@/components/PhoneInput";
 import { isValidPhone } from "@/lib/phone";
 import { BookingSteps } from "@/components/BookingSteps";
+import { authHeaders } from "@/lib/auth-fetch";
 
 interface TripSummary {
   fromName: string;
@@ -36,7 +37,7 @@ export default function PaiementPage() {
     status: "ok" | "indisponible" | "agence_a_choisir" | "aucune_agence";
     agency_name?: string;
     agency_city?: string;
-    accounts: { provider: "mtn" | "airtel"; number: string; holder_name: string }[];
+    accounts: { provider: "mtn" | "airtel"; number: string; holder_name: string; is_demo?: boolean }[];
   } | null>(null);
 
   useEffect(() => {
@@ -45,7 +46,8 @@ export default function PaiementPage() {
     if (!d || !d.passengers) return;
     setPhoneSender(d.passengers[0]?.phone || "");
     // Agence de départ et ses comptes de paiement (déterminés par le serveur)
-    fetch(`/api/trips/${d.tripId}/payment?from=${d.from}&to=${d.to}${d.fromTerminal ? `&fromTerminal=${d.fromTerminal}` : ""}`)
+    authHeaders()
+      .then((headers) => fetch(`/api/trips/${d.tripId}/payment?from=${d.from}&to=${d.to}${d.fromTerminal ? `&fromTerminal=${d.fromTerminal}` : ""}`, { headers }))
       .then((r) => r.json())
       .then((json) => {
         if (!json.success) return;
@@ -99,7 +101,7 @@ export default function PaiementPage() {
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeaders(),
         body: JSON.stringify({
           tripId: draft.tripId,
           from: draft.from,
@@ -133,6 +135,8 @@ export default function PaiementPage() {
           trip: trip && { fromName: trip.fromName, toName: trip.toName, date: trip.departDate, departTime: trip.departTime, busName: trip.bus.name },
           payment: { method, transactionCode: transactionCode.trim(), status: "pending" },
           agencyName: json.agencyName,
+          isDemo: json.isDemo,
+          expiresMinutes: json.expiresMinutes,
         })
       );
       clearDraft();
@@ -174,9 +178,19 @@ export default function PaiementPage() {
         </div>
       )}
       {payInfo?.status === "indisponible" && (
-        <div className="card mb-6 border-2 border-red-300 bg-red-50 text-red-800">
-          <p className="font-bold">Paiement en ligne temporairement indisponible pour cette agence</p>
-          <p className="text-sm mt-1">L&apos;agence Nzoko de {payInfo.agency_name} ({payInfo.agency_city}) n&apos;a pas encore de compte Mobile Money actif. N&apos;envoyez pas d&apos;argent : contactez l&apos;agence ou réessayez plus tard.</p>
+        <div className="card mb-6 border-2 border-accent-300 bg-accent-50 text-night">
+          <p className="font-bold">Paiement en ligne non encore activé pour cette agence</p>
+          <p className="text-sm mt-1">
+            Cette fonctionnalité sera configurée avec les comptes Mobile Money de l&apos;entreprise
+            (agence {payInfo.agency_name}, {payInfo.agency_city}). N&apos;envoyez aucun argent.
+          </p>
+          <p className="text-sm mt-2">En attendant, le billet peut être acheté au guichet de l&apos;agence.</p>
+        </div>
+      )}
+      {payInfo?.accounts.some((a) => a.is_demo) && (
+        <div className="card mb-6 border-2 border-dashed border-red-400 bg-red-50 text-red-800">
+          <p className="font-bold">MODE DÉMONSTRATION — comptes de test</p>
+          <p className="text-sm mt-1">Visible uniquement par l&apos;administrateur connecté. N&apos;envoyez pas d&apos;argent réel : saisissez une référence fictive pour la démonstration.</p>
         </div>
       )}
       {payInfo?.status === "agence_a_choisir" && (
@@ -228,7 +242,7 @@ export default function PaiementPage() {
             </p>
           )}
           {payInfo && payInfo.status !== "ok" ? (
-            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">Paiement en ligne indisponible (voir ci-dessus).</p>
+            <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg p-3">Paiement en ligne non encore activé pour ce départ (voir ci-dessus).</p>
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {(["mtn", "airtel"] as const).map((p) => {

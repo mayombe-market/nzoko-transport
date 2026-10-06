@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { StaffGate } from "@/components/StaffGate";
 import { PhoneInput } from "@/components/PhoneInput";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 
@@ -16,7 +17,7 @@ interface CompanySettings {
   address: string;
 }
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const [settings, setSettings] = useState<CompanySettings>({
     name: "Nzoko Transport",
     slogan: "Voyagez en toute sécurité avec Nzoko",
@@ -150,26 +151,13 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Mobile Money */}
-        <div className="card">
-          <h2 className="font-bold text-night mb-4">📱 Numéros Mobile Money</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Ces numéros seront affichés aux clients lors du paiement.
+        {/* Mobile Money : les numéros sont gérés par agence */}
+        <div className="card bg-accent-50 border-accent-200">
+          <h2 className="font-bold text-night mb-2">📱 Numéros Mobile Money</h2>
+          <p className="text-sm text-gray-700">
+            Les clients paient l&apos;agence de départ : les numéros MTN / Airtel se gèrent agence par agence dans{" "}
+            <Link href="/admin/finance" className="underline font-semibold">Finance → Comptes Mobile Money des agences</Link>.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                MTN Mobile Money
-              </label>
-              <PhoneInput value={settings.phone_mtn} onChange={(v) => setSettings({ ...settings, phone_mtn: v })} placeholder="06 123 45 67" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Airtel Money
-              </label>
-              <PhoneInput value={settings.phone_airtel} onChange={(v) => setSettings({ ...settings, phone_airtel: v })} placeholder="05 123 45 67" />
-            </div>
-          </div>
         </div>
 
         {/* Contact */}
@@ -206,5 +194,13 @@ export default function SettingsPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <StaffGate roles={["admin"]}>
+      <SettingsPageContent />
+    </StaffGate>
   );
 }

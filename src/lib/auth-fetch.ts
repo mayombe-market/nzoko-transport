@@ -14,3 +14,14 @@ export async function authFetch(url: string, body: unknown): Promise<Response> {
   }
   return fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
 }
+
+/** En-têtes JSON + jeton de session s'il y en a un (routes publiques qui reconnaissent le personnel). */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}

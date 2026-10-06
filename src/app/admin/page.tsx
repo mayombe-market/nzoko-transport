@@ -11,7 +11,10 @@ import type { User } from "@supabase/supabase-js";
 import { LogoIcon } from "@/components/Logo";
 import { RevenueSummary } from "@/components/RevenueSummary";
 import { PhoneInput } from "@/components/PhoneInput";
-import { isValidPhone, normalizePhone } from "@/lib/phone";
+import { isValidPhone, normalizePhone, displayPhone } from "@/lib/phone";
+import { formatXAF } from "@/lib/utils";
+import { AgenciesTab } from "@/components/AgenciesTab";
+import { RecentBookings } from "@/components/RecentBookings";
 
 const ROLE_LABEL: Record<string, string> = { admin: "Administrateur", finance: "Finance", manager: "Responsable d'agence", agent: "Agent" };
 
@@ -22,13 +25,24 @@ interface AgentProfile {
   phone: string | null;
   is_active: boolean;
   created_at: string;
+  terminal_id?: string | null;
+}
+
+interface Dashboard {
+  bookings_today: number;
+  pending_payments: number;
+  parcels_today: number;
+  revenue_today: number | null;
+  active_staff: number | null;
 }
 
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"reservations" | "bus" | "lignes" | "agents" | "stats">("reservations");
+  const [activeTab, setActiveTab] = useState<"reservations" | "bus" | "lignes" | "agences" | "agents" | "stats" | "settings">("reservations");
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [terminals, setTerminals] = useState<{ id: string; name: string; city_id: string; is_active: boolean }[]>([]);
 
   // Login states
   const [email, setEmail] = useState("");
@@ -85,13 +99,28 @@ export default function AdminPage() {
       .eq("id", userId)
       .single();
 
-    if (data) {
+    if (data && data.is_active) {
       setProfile(data as AgentProfile);
-      // Charger les agents si admin
+      loadDashboard();
+      loadTerminals();
       if (data.role === "admin") {
         loadAgents();
       }
+    } else {
+      setProfile(null);
     }
+  }
+
+  async function loadDashboard() {
+    const res = await authFetch("/api/admin/finance", { op: "dashboard" });
+    const json = await res.json().catch(() => null);
+    if (json?.success) setDashboard(json.data);
+  }
+
+  async function loadTerminals() {
+    if (!supabase) return;
+    const { data } = await supabase.from("terminals").select("id, name, city_id, is_active").order("city_id").order("name");
+    if (data) setTerminals(data);
   }
 
   async function loadAgents() {
@@ -135,8 +164,8 @@ export default function AdminPage() {
         .eq("id", data.user.id)
         .single();
 
-      if (!agentData) {
-        setLoginError("Ce compte n'a pas accès à l'espace agent. Contactez l'administrateur.");
+      if (!agentData || !agentData.is_active) {
+        setLoginError("Ce compte n'a pas accès à l'espace du personnel. Contactez l'administrateur.");
         await supabase.auth.signOut();
         setLoginLoading(false);
         return;
@@ -144,6 +173,8 @@ export default function AdminPage() {
 
       setUser(data.user);
       setProfile(agentData as AgentProfile);
+      loadDashboard();
+      loadTerminals();
       if (agentData.role === "admin") {
         loadAgents();
       }
@@ -230,9 +261,9 @@ export default function AdminPage() {
             <div className="w-16 h-16 bg-night rounded-full flex items-center justify-center mx-auto mb-4">
               <LogoIcon className="w-10 h-10" />
             </div>
-            <h1 className="text-xl font-bold text-night mb-2">Espace Agent</h1>
+            <h1 className="text-xl font-bold text-night mb-2">Connexion du personnel Nzoko</h1>
             <p className="text-sm text-gray-600">
-              Connectez-vous avec votre compte agent pour accéder au dashboard.
+              Accès réservé au personnel des agences, sur identifiants fournis par la direction.
             </p>
           </div>
 
@@ -275,8 +306,7 @@ export default function AdminPage() {
           </form>
 
           <p className="text-xs text-gray-400 mt-6 text-center">
-            Seuls les comptes avec un rôle agent ou admin peuvent accéder ici.<br />
-            Contactez votre administrateur si vous n&apos;avez pas d&apos;accès.
+            Vous êtes voyageur ? <Link href="/mes-reservations" className="underline">Retrouvez vos réservations</Link>.
           </p>
         </div>
       </div>
@@ -293,7 +323,7 @@ export default function AdminPage() {
             <LogoIcon className="w-8 h-8" />
           </div>
           <div>
-          <h1 className="section-title">Dashboard Nzoko Transport</h1>
+          <h1 className="section-title">Tableau de bord Nzoko Transport</h1>
           <p className="text-gray-600 text-sm">
             Connecté en tant que <strong>{profile.full_name}</strong>
             <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
@@ -312,23 +342,27 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* Stats rapides */}
+      {/* Chiffres réels du périmètre (réseau, ou agence de la personne connectée) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="card text-center">
-          <p className="text-3xl font-black text-night">0</p>
+          <p className="text-3xl font-black text-night">{dashboard ? dashboard.bookings_today : "…"}</p>
           <p className="text-xs text-gray-500">Réservations du jour</p>
         </div>
         <div className="card text-center">
-          <p className="text-3xl font-black text-accent-700">0 FCFA</p>
-          <p className="text-xs text-gray-500">Revenus du jour</p>
+          <p className="text-2xl sm:text-3xl font-black text-accent-700">
+            {dashboard ? (dashboard.revenue_today === null ? "—" : formatXAF(dashboard.revenue_today)) : "…"}
+          </p>
+          <p className="text-xs text-gray-500">{dashboard?.revenue_today === null ? "Revenus (réservé aux responsables)" : "Encaissé aujourd'hui"}</p>
         </div>
+        <Link href="/admin/paiements" className="card text-center hover:shadow-lg transition-shadow">
+          <p className="text-3xl font-black text-yellow-600">{dashboard ? dashboard.pending_payments : "…"}</p>
+          <p className="text-xs text-gray-500">Paiements à vérifier</p>
+        </Link>
         <div className="card text-center">
-          <p className="text-3xl font-black text-yellow-600">0</p>
-          <p className="text-xs text-gray-500">Paiements en attente</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-3xl font-black text-green-600">{agents.length || 1}</p>
-          <p className="text-xs text-gray-500">Agents actifs</p>
+          <p className="text-3xl font-black text-green-600">
+            {dashboard ? (dashboard.active_staff ?? dashboard.parcels_today) : "…"}
+          </p>
+          <p className="text-xs text-gray-500">{dashboard?.active_staff != null ? "Comptes du personnel actifs" : "Colis déposés aujourd'hui"}</p>
         </div>
       </div>
 
@@ -353,6 +387,22 @@ export default function AdminPage() {
         </Link>
       </div>
       <div className="grid sm:grid-cols-2 gap-3 mb-6">
+        <Link href="/admin/guichet" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-green-600">
+          <span className="text-3xl">💵</span>
+          <span>
+            <span className="block font-bold text-night">Vente au guichet</span>
+            <span className="text-xs text-gray-500">Billet payé en espèces : départ, siège, passager, billet</span>
+          </span>
+        </Link>
+        <Link href="/admin/colis/departs" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-night">
+          <span className="text-3xl">🚌</span>
+          <span>
+            <span className="block font-bold text-night">Départs du jour</span>
+            <span className="text-xs text-gray-500">Bus, retards, annulations, passagers et colis</span>
+          </span>
+        </Link>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3 mb-6 -mt-3">
         <Link href="/admin/colis" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-accent-500">
           <span className="text-3xl">📦</span>
           <span>
@@ -360,15 +410,6 @@ export default function AdminPage() {
             <span className="text-xs text-gray-500">Dépôt, affectation, chargement, réception, retrait</span>
           </span>
         </Link>
-        <Link href="/admin/colis/departs" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-night">
-          <span className="text-3xl">🚌</span>
-          <span>
-            <span className="block font-bold text-night">Départs du jour</span>
-            <span className="text-xs text-gray-500">Passagers, colis et manifeste par bus</span>
-          </span>
-        </Link>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-3 mb-6 -mt-3">
         <Link href="/admin/paiements" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-green-600">
           <span className="text-3xl">💳</span>
           <span>
@@ -376,6 +417,8 @@ export default function AdminPage() {
             <span className="text-xs text-gray-500">Confirmer / refuser les paiements MTN et Airtel de votre agence</span>
           </span>
         </Link>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3 mb-6 -mt-3">
         {["admin", "finance", "manager"].includes(profile.role) && (
           <Link href="/admin/finance" className="card flex items-center gap-3 hover:shadow-lg transition-shadow border-l-4 border-l-accent-700">
             <span className="text-3xl">📊</span>
@@ -391,8 +434,8 @@ export default function AdminPage() {
           { key: "reservations", label: "🎫 Réservations" },
           { key: "bus", label: "🚌 Flotte" },
           { key: "lignes", label: "🛣️ Lignes" },
-          ...(profile.role === "admin" ? [{ key: "agents", label: "👥 Agents" }] : []),
-          { key: "stats", label: "📊 Statistiques" },
+          ...(profile.role === "admin" ? [{ key: "agences", label: "🏢 Agences" }, { key: "agents", label: "👥 Personnel" }] : []),
+          ...(["admin", "finance"].includes(profile.role) ? [{ key: "stats", label: "📊 Statistiques" }] : []),
           ...(profile.role === "admin" ? [{ key: "settings", label: "⚙️ Paramètres" }] : []),
         ].map((tab) => (
           <button
@@ -410,18 +453,9 @@ export default function AdminPage() {
       </div>
 
       {/* Contenu des onglets */}
-      {activeTab === "reservations" && (
-        <div className="card">
-          <h2 className="font-bold text-night mb-4">Réservations récentes</h2>
-          <div className="text-center py-8 text-gray-400">
-            <div className="text-4xl mb-2">🎫</div>
-            <p>Les réservations apparaîtront ici.</p>
-            <p className="text-xs mt-2">
-              Vous pourrez confirmer ou refuser les paiements Mobile Money.
-            </p>
-          </div>
-        </div>
-      )}
+      {activeTab === "reservations" && <RecentBookings />}
+
+      {activeTab === "agences" && profile.role === "admin" && <AgenciesTab onChange={loadTerminals} />}
 
       {activeTab === "bus" && (
         <BusFleetTab isAdmin={profile.role === "admin"} />
@@ -509,19 +543,16 @@ export default function AdminPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Terminus assigné</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Agence</label>
                   <select
                     value={newAgentTerminal}
                     onChange={(e) => setNewAgentTerminal(e.target.value)}
                     className="input-field"
                   >
-                    <option value="">Tous (admin uniquement)</option>
-                    <option value="chateau-deau">Château d&apos;eau — Brazzaville</option>
-                    <option value="mpila">Mpila — Brazzaville</option>
-                    <option value="mafouta">Mafouta — Brazzaville</option>
-                    <option value="centre-ville">Centre-ville — Pointe-Noire</option>
-                    <option value="nkouikou">Nkouikou — Pointe-Noire</option>
-                    <option value="ngoyo">Ngoyo — Pointe-Noire</option>
+                    <option value="">Aucune (administrateur / Finance central)</option>
+                    {terminals.filter((t) => t.is_active).map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} — {t.city_id}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -556,7 +587,8 @@ export default function AdminPage() {
                       <div>
                         <p className="font-medium text-night">{agent.full_name}</p>
                         <p className="text-xs text-gray-500">
-                          {agent.phone || "Pas de téléphone"} •
+                          {agent.phone ? displayPhone(agent.phone) : "Pas de téléphone"} •
+                          {" "}{agent.terminal_id ? `Agence ${terminals.find((t) => t.id === agent.terminal_id)?.name ?? agent.terminal_id} • ` : ""}
                           <span className={`ml-1 ${agent.role === "admin" ? "text-purple-600" : "text-blue-600"}`}>
                             {ROLE_LABEL[agent.role] ?? agent.role}
                           </span>
@@ -598,13 +630,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {activeTab === "stats" && (
-        profile.role === "admin" ? (
-          <RevenueSummary />
-        ) : (
-          <div className="card text-center py-8 text-gray-500">Les revenus sont réservés aux administrateurs.</div>
-        )
-      )}
+      {activeTab === "stats" && ["admin", "finance"].includes(profile.role) && <RevenueSummary />}
 
       {activeTab === "settings" && profile.role === "admin" && (
         <div className="card text-center py-8">

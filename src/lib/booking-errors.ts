@@ -5,7 +5,9 @@ const MESSAGES: Record<string, string> = {
   DEPART_PASSE: "Ce départ est déjà passé.",
   SIEGE_INVALIDE: "Ce siège n'existe pas dans ce bus.",
   SIEGE_PRIS: "Ce siège vient d'être pris par un autre voyageur. Choisissez-en un autre.",
-  TROP_DE_SIEGES: "Vous ne pouvez pas bloquer plus de 10 sièges.",
+  TROP_DE_SIEGES: "Vous ne pouvez pas bloquer plus de 10 sièges sur ce départ.",
+  TROP_DE_RESERVATIONS: "Vous avez déjà plusieurs réservations en attente de vérification. Attendez leur confirmation avant d'en créer une autre.",
+  RESERVATION_EXPIREE: "Réservation expirée : le paiement n'a pas été confirmé dans les 30 minutes. Les sièges ont été libérés.",
   PASSAGERS_INVALIDES: "Informations passagers invalides.",
   NOM_PASSAGER_MANQUANT: "Le nom de chaque passager est obligatoire.",
   SIEGES_INVALIDES: "Sélection de sièges invalide.",
@@ -23,7 +25,7 @@ const MESSAGES: Record<string, string> = {
   AGENCE_INTROUVABLE: "Paiement en ligne indisponible : aucune agence Nzoko dans votre ville de départ.",
   AGENCE_DEPART_A_CHOISIR: "Choisissez votre agence (terminus) de départ : cette ville en compte plusieurs.",
   AGENCE_ARRIVEE_A_CHOISIR: "Choisissez votre agence (terminus) d'arrivée : cette ville en compte plusieurs.",
-  AUCUN_COMPTE: "Paiement en ligne temporairement indisponible pour cette agence.",
+  AUCUN_COMPTE: "Paiement en ligne non encore activé pour cette agence. Cette fonctionnalité sera configurée avec les comptes Mobile Money de l'entreprise.",
   METHODE_INDISPONIBLE: "Ce moyen de paiement n'est pas disponible pour cette agence.",
   TRANSACTION_DEJA_UTILISEE: "Cette référence de transaction a déjà été utilisée.",
   // Colis
@@ -49,6 +51,13 @@ const MESSAGES: Record<string, string> = {
   CODE_BLOQUE: "Trop de codes incorrects : retrait bloqué 30 minutes. Un agent peut générer un nouveau code.",
   PAIEMENT_REQUIS: "Le transport est à payer par le destinataire : encaissez avant la remise.",
   TROP_DE_TENTATIVES: "Trop de tentatives. Réessayez dans une heure.",
+  RECHERCHE_INVALIDE: "Indiquez la référence (NZK-…) et le numéro de téléphone utilisé lors de la réservation.",
+  // Départs
+  DEPART_ANNULE: "Ce départ est annulé.",
+  DEJA_ANNULE: "Ce départ est déjà annulé.",
+  BUS_INVALIDE: "Bus invalide ou inactif.",
+  BUS_INCOMPATIBLE: "Changement impossible : le nouveau bus ne peut pas accueillir les sièges déjà vendus.",
+  RETARD_INVALIDE: "Retard invalide.",
 };
 
 export function bookingErrorMessage(code: string | undefined | null): string {

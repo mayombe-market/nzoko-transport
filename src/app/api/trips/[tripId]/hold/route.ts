@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/api-auth";
+import { getServiceClient, optionalAgent, clientHash } from "@/lib/api-auth";
 import { bookingErrorMessage } from "@/lib/booking-errors";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -20,9 +20,12 @@ export async function POST(req: NextRequest, { params }: { params: { tripId: str
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ success: false, message: "Service non configuré." }, { status: 503 });
 
+  // Limite par appareil (10 sièges bloqués par départ) — sauf personnel connecté (vente au guichet)
+  const staff = await optionalAgent(req);
+  const client = staff ? null : clientHash(req);
   let expiresAt: string | null = null;
   for (const seat of seats) {
-    const { data, error } = await supabase.rpc("nzk_hold_seat", { p_trip: params.tripId, p_seat: seat, p_token: token });
+    const { data, error } = await supabase.rpc("nzk_hold_seat", { p_trip: params.tripId, p_seat: seat, p_token: token, p_client: client });
     if (error) {
       console.error("nzk_hold_seat:", error);
       return NextResponse.json({ success: false, message: "Erreur serveur." }, { status: 500 });

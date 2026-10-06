@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/api-auth";
-import { cityName } from "@/lib/cities";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -29,6 +28,9 @@ export async function GET(req: NextRequest, { params }: { params: { tripId: stri
   if (!d || d.price == null) {
     return NextResponse.json({ success: false, message: "Départ introuvable." }, { status: 404 });
   }
+
+  const { data: cities } = await supabase.from("cities").select("id, name").in("id", [from, to]);
+  const cityName = (id: string) => cities?.find((c) => c.id === id)?.name ?? id;
 
   const fromOff = d.direction === "aller" ? d.from_offset : d.max_offset - d.from_offset;
   const toOff = d.direction === "aller" ? d.to_offset : d.max_offset - d.to_offset;

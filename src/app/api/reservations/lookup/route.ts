@@ -1,55 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/api-auth";
-import { PUBLIC_BOOKING_SELECT, toPublicBooking, normalizeReference } from "@/lib/public-booking";
-import { phoneVariants } from "@/lib/phone";
+import { bookingErrorMessage } from "@/lib/booking-errors";
+import { normalizeReference } from "@/lib/public-booking";
+import { isValidPhone } from "@/lib/phone";
 
 // Recherche publique « Mes réservations » (visiteur non connecté).
-// - par référence : réservation correspondante, noms complets (le billet les affiche)
-// - par téléphone : réservations de ce numéro, noms masqués
-// Jamais d'email, de téléphone complet ni de paiement.
+// Il faut la référence ET le numéro de téléphone utilisé lors de la réservation.
+// Un numéro seul ne donne jamais accès à un trajet, un siège ni un billet.
+// Les échecs répétés bloquent la recherche pendant une heure (géré par la base).
 export async function POST(req: NextRequest) {
   try {
-    const { mode, value } = await req.json();
+    const { reference, phone } = await req.json().catch(() => ({}));
+    const ref = normalizeReference(reference);
+    if (!ref || !isValidPhone(phone)) {
+      return NextResponse.json({ success: false, message: bookingErrorMessage("RECHERCHE_INVALIDE") }, { status: 400 });
+    }
     const supabase = getServiceClient();
     if (!supabase) {
       return NextResponse.json({ success: false, message: "Service non configuré." }, { status: 503 });
     }
-
-    if (mode === "reference") {
-      const reference = normalizeReference(value);
-      if (!reference) {
-        return NextResponse.json({ success: true, bookings: [] });
-      }
-      const { data } = await supabase
-        .from("bookings")
-        .select(PUBLIC_BOOKING_SELECT)
-        .eq("reference", reference)
-        .limit(1);
-      return NextResponse.json({ success: true, bookings: (data ?? []).map((row) => toPublicBooking(row)) });
+    const { data, error } = await supabase.rpc("nzk_booking_lookup", { p_reference: ref, p_phone: String(phone) });
+    if (error) {
+      console.error("nzk_booking_lookup:", error);
+      return NextResponse.json({ success: false, message: "Erreur serveur." }, { status: 500 });
     }
-
-    if (mode === "phone") {
-      const variants = phoneVariants(String(value ?? ""));
-      if (variants.length === 0) {
-        return NextResponse.json({ success: false, message: "Numéro de téléphone invalide." }, { status: 400 });
-      }
-      const { data } = await supabase
-        .from("bookings")
-        .select(`${PUBLIC_BOOKING_SELECT}, access_key`)
-        .in("customer_phone", variants)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      // Le numéro du client sert de preuve : on renvoie le lien d'accès à chaque billet
-      return NextResponse.json({
-        success: true,
-        bookings: (data ?? []).map((row: any) => ({
-          ...toPublicBooking(row, { maskNames: true }),
-          access_key: row.access_key ?? null,
-        })),
-      });
+    if (!data?.ok) {
+      const message =
+        data?.error === "INTROUVABLE"
+          ? "Aucune réservation ne correspond à cette référence et ce numéro."
+          : bookingErrorMessage(data?.error);
+      return NextResponse.json({ success: false, code: data?.error, message }, { status: data?.error === "TROP_DE_TENTATIVES" ? 429 : 404 });
     }
-
-    return NextResponse.json({ success: false, message: "Recherche invalide." }, { status: 400 });
+    return NextResponse.json({ success: true, bookings: [data.booking] });
   } catch (err) {
     console.error("Lookup error:", err);
     return NextResponse.json({ success: false, message: "Erreur serveur." }, { status: 500 });

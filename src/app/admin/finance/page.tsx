@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { authFetch } from "@/lib/auth-fetch";
 import { formatXAF } from "@/lib/utils";
-import { cityName } from "@/lib/cities";
+import { useNetwork } from "@/lib/network";
 import { formatDateTime, todayBrazzaville, useAgent } from "@/lib/parcel-ui";
 import { LogoIcon } from "@/components/Logo";
 import { PhoneInput } from "@/components/PhoneInput";
@@ -17,6 +17,7 @@ interface AgencyReport {
   voyageurs: number;
   voyageurs_mtn: number;
   voyageurs_airtel: number;
+  voyageurs_especes?: number;
   voyageurs_count: number;
   colis: number;
   colis_mtn: number;
@@ -36,6 +37,7 @@ interface Account {
   number: string;
   holder_name: string;
   is_active: boolean;
+  is_demo?: boolean;
   updated_at?: string;
   updated_by?: string | null;
 }
@@ -50,6 +52,7 @@ const api = async (op: string, params: Record<string, unknown> = {}) => (await a
 
 export default function FinancePage() {
   const { agent, allTerminals, ready } = useAgent();
+  const { cityLabel: cityName } = useNetwork();
   const [period, setPeriod] = useState<(typeof PERIODS)[number]["key"]>("jour");
   const [report, setReport] = useState<{ scope: string; agencies: AgencyReport[]; non_attribues: { voyageurs: number; en_attente_count: number } | null } | null>(null);
   const [error, setError] = useState("");
@@ -146,7 +149,7 @@ export default function FinancePage() {
                     <tr className="text-left text-xs text-gray-500 border-b">
                       <th className="py-2">Agence</th>
                       <th className="text-right">Voyageurs</th>
-                      <th className="text-right">dont MTN / Airtel</th>
+                      <th className="text-right">dont MTN / Airtel / Guichet</th>
                       <th className="text-right">Colis</th>
                       <th className="text-right">dont MTN / Airtel / Espèces</th>
                       <th className="text-right">En attente</th>
@@ -158,7 +161,7 @@ export default function FinancePage() {
                       <tr key={a.agency_id} className="border-b last:border-0">
                         <td className="py-2"><strong>{a.agency_name}</strong> <span className="text-xs text-gray-500">{a.city}</span></td>
                         <td className="text-right">{formatXAF(a.voyageurs)} <span className="text-xs text-gray-400">({a.voyageurs_count})</span></td>
-                        <td className="text-right text-xs">{formatXAF(a.voyageurs_mtn)} / {formatXAF(a.voyageurs_airtel)}</td>
+                        <td className="text-right text-xs">{formatXAF(a.voyageurs_mtn)} / {formatXAF(a.voyageurs_airtel)} / {formatXAF(a.voyageurs_especes ?? 0)}</td>
                         <td className="text-right">{formatXAF(a.colis)} <span className="text-xs text-gray-400">({a.colis_count})</span></td>
                         <td className="text-right text-xs">{formatXAF(a.colis_mtn)} / {formatXAF(a.colis_airtel)} / {formatXAF(a.colis_especes)}</td>
                         <td className="text-right">{a.en_attente_count ? <span className="text-red-700 font-semibold">{a.en_attente_count} · {formatXAF(a.en_attente_montant)}</span> : "—"}</td>
@@ -182,7 +185,7 @@ export default function FinancePage() {
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-bold text-night text-lg">Comptes Mobile Money des agences</h2>
         {isCentral && (
-          <button onClick={() => setEdit({ terminal_id: allTerminals[0]?.id ?? "", provider: "mtn", number: "", holder_name: "", is_active: true })} className="btn-primary text-sm px-4 py-2">
+          <button onClick={() => setEdit({ terminal_id: allTerminals[0]?.id ?? "", provider: "mtn", number: "", holder_name: "", is_active: true, is_demo: false })} className="btn-primary text-sm px-4 py-2">
             + Ajouter un compte
           </button>
         )}
@@ -217,6 +220,9 @@ export default function FinancePage() {
           </div>
           <div className="flex items-center gap-2">
             <label className="text-xs flex items-center gap-1"><input type="checkbox" checked={edit.is_active} onChange={(e) => setEdit({ ...edit, is_active: e.target.checked })} /> Actif</label>
+            <label className="text-xs flex items-center gap-1 text-red-700" title="Jamais montré au public ; réservations exclues des revenus">
+              <input type="checkbox" checked={!!edit.is_demo} onChange={(e) => setEdit({ ...edit, is_demo: e.target.checked })} /> Démo
+            </label>
             <button disabled={!isValidPhone(edit.number)} className="btn-accent text-sm px-3 py-2 disabled:opacity-50">Enregistrer</button>
             <button type="button" onClick={() => setEdit(null)} className="text-sm text-gray-500">Annuler</button>
           </div>
@@ -224,7 +230,10 @@ export default function FinancePage() {
       )}
 
       {accounts.length === 0 ? (
-        <div className="card text-center text-gray-500">Aucun compte configuré : les clients ne peuvent pas encore payer en ligne.</div>
+        <div className="card text-center text-gray-500">
+          Aucun compte configuré : le paiement en ligne s&apos;affiche « non encore activé » ; la vente au guichet reste possible.
+          <span className="block text-xs mt-1">Cochez « Démo » pour un compte de test : il n&apos;est montré qu&apos;à l&apos;administrateur connecté et ses réservations sont exclues des revenus.</span>
+        </div>
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
@@ -240,7 +249,10 @@ export default function FinancePage() {
                   <td>{a.provider === "mtn" ? "MTN MoMo" : "Airtel Money"}</td>
                   <td className="font-mono">{displayPhone(a.number)}</td>
                   <td>{a.holder_name}</td>
-                  <td>{a.is_active ? <span className="text-green-700">Actif</span> : <span className="text-gray-400">Inactif</span>}</td>
+                  <td>
+                    {a.is_active ? <span className="text-green-700">Actif</span> : <span className="text-gray-400">Inactif</span>}
+                    {a.is_demo && <span className="ml-2 text-xs font-bold text-red-600">DÉMO — non public</span>}
+                  </td>
                   <td className="text-xs text-gray-500">{a.updated_at ? formatDateTime(a.updated_at) : ""}{a.updated_by ? ` · ${a.updated_by}` : ""}</td>
                   <td className="text-right">{isCentral && <button onClick={() => setEdit(a)} className="text-xs underline">Modifier</button>}</td>
                 </tr>

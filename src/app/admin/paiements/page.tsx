@@ -28,12 +28,16 @@ interface PaymentRow {
   departure_time: string;
   passenger_count: number;
   primary_passenger: string | null;
+  is_demo?: boolean;
+  sale_channel?: string;
+  expires_at?: string | null;
 }
 
 const TABS = [
   { key: "pending", label: "⏳ À vérifier" },
   { key: "confirmed", label: "✅ Confirmés" },
   { key: "rejected", label: "❌ Refusés" },
+  { key: "expired", label: "⌛ Expirés" },
 ] as const;
 
 // Paiements voyageurs (Mobile Money manuel) de l'agence de l'agent — ou de tout le réseau pour le central
@@ -97,7 +101,7 @@ export default function PaiementsPage() {
 
       <p className="text-sm text-gray-600 mb-4 bg-accent-50 border border-accent-200 rounded-lg p-3">
         Vérifiez sur le <strong>compte réel</strong> de l&apos;agence (MTN / Airtel) que le montant et la référence correspondent avant de confirmer.
-        La confirmation crée les billets et leur QR code.
+        La confirmation crée les billets et leur QR code. Sans confirmation dans les <strong>30 minutes</strong>, la réservation expire et les sièges sont libérés.
       </p>
 
       <div className="flex gap-2 mb-4">
@@ -120,18 +124,23 @@ export default function PaiementsPage() {
             <div key={r.payment_id} className="bg-white border border-gray-200 border-l-4 border-l-accent-500 rounded-r-lg p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
-                  <p className="font-mono font-bold text-night">{r.reference}</p>
+                  <p className="font-mono font-bold text-night">
+                    {r.reference}
+                    {r.is_demo && <span className="ml-2 text-xs font-bold text-red-600">DÉMONSTRATION</span>}
+                    {r.sale_channel === "guichet" && <span className="ml-2 text-xs font-semibold text-green-700">Vente au guichet</span>}
+                  </p>
                   <p className="text-sm text-gray-700">{r.from_city} → {r.to_city} · {r.date} {r.departure_time} · {r.passenger_count} passager(s) · {r.primary_passenger}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     Agence bénéficiaire : <strong>{r.agency_name ?? "non attribuée"}</strong> · compte {r.account_number ?? "—"} · déclaré le {formatDateTime(r.declared_at)}
                   </p>
                   {r.confirmed_at && <p className="text-xs text-gray-500">Traité le {formatDateTime(r.confirmed_at)} par {r.confirmed_by ?? "—"}</p>}
+                  {r.status === "pending" && r.expires_at && <p className="text-xs text-amber-700">Expire le {formatDateTime(r.expires_at)} sans confirmation</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-black text-accent-700">{formatXAF(r.amount)}</p>
-                  <p className="text-sm font-semibold">{r.method === "mtn" ? "MTN MoMo" : "Airtel Money"}</p>
-                  <p className="font-mono text-sm">{r.transaction_code}</p>
-                  <p className="text-xs text-gray-500">depuis {displayPhone(r.phone_sender)}</p>
+                  <p className="text-sm font-semibold">{r.method === "mtn" ? "MTN MoMo" : r.method === "airtel" ? "Airtel Money" : "Espèces"}</p>
+                  {r.transaction_code && <p className="font-mono text-sm">{r.transaction_code}</p>}
+                  {r.phone_sender && <p className="text-xs text-gray-500">depuis {displayPhone(r.phone_sender)}</p>}
                 </div>
               </div>
               {r.status === "pending" && (
