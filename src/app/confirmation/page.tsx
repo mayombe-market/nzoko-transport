@@ -15,6 +15,8 @@ interface ConfirmationData {
   trip: { fromName: string; toName: string; date: string; departTime: string; busName: string } | null;
   payment: { method: string; transactionCode: string; status: string };
   agencyName?: string;
+  isDemo?: boolean;
+  expiresMinutes?: number;
 }
 
 export default function ConfirmationPage() {
@@ -62,6 +64,15 @@ export default function ConfirmationPage() {
         <p className="text-gray-600 text-sm mt-1">
           Dès qu&apos;il est confirmé, votre billet avec son QR code sécurisé est disponible avec le lien ci-dessous.
         </p>
+        <p className="text-gray-500 text-xs mt-2">
+          Sans confirmation de l&apos;agence dans les {data.expiresMinutes ?? 30} minutes, la réservation expire et les sièges sont libérés.
+          Gardez votre référence : avec votre numéro de téléphone, elle permet de retrouver la réservation.
+        </p>
+        {data.isDemo && (
+          <p className="mt-3 inline-block rounded-lg border-2 border-dashed border-red-400 bg-red-50 px-3 py-1 text-xs font-bold text-red-700">
+            Réservation de démonstration — exclue des revenus
+          </p>
+        )}
       </div>
 
       {/* Lien privé du billet */}

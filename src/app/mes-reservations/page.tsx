@@ -6,13 +6,17 @@ import { formatXAF } from "@/lib/utils";
 import Link from "next/link";
 import { PhoneInput } from "@/components/PhoneInput";
 import { isValidPhone } from "@/lib/phone";
+import { useNetwork } from "@/lib/network";
 
 interface BookingWithPassengers {
   id: string;
   reference: string;
   from_city: string;
   to_city: string;
+  from_city_name?: string;
+  to_city_name?: string;
   from_terminal: string | null;
+  from_terminal_name?: string | null;
   date: string;
   departure_time: string;
   total_price: number;
@@ -21,44 +25,31 @@ interface BookingWithPassengers {
   created_at: string;
   passengers?: { full_name: string; seat_number: string; is_primary: boolean }[];
   access_key?: string | null;
+  trip_status?: string | null;
+  delay_minutes?: number;
+  trip_status_reason?: string | null;
 }
 
-const CITY_NAMES: Record<string, string> = {
-  brazzaville: "Brazzaville",
-  pointenoire: "Pointe-Noire",
-  dolisie: "Dolisie",
-  nkayi: "Nkayi",
-  oyo: "Oyo",
-  ouesso: "Ouesso",
-  djambala: "Djambala",
-  sibiti: "Sibiti",
-  kinkala: "Kinkala",
-  mindouli: "Mindouli",
-  madingou: "Madingou",
-  loudima: "Loudima",
-  gamboma: "Gamboma",
-  owando: "Owando",
-  makoua: "Makoua",
-};
+const REFERENCE = /^NZK-\d{6}-[A-Z0-9]{4}$/;
 
-const TERMINAL_NAMES: Record<string, string> = {
-  "chateau-deau": "Château d'eau",
-  "mpila": "Mpila",
-  "mafouta": "Mafouta",
-  "centre-ville": "Centre-ville",
-  "nkouikou": "Nkouikou",
-  "ngoyo": "Ngoyo",
+const STATUS: Record<string, { label: string; badge: string; border: string }> = {
+  confirmed: { label: "✅ Confirmé", badge: "bg-green-100 text-green-700", border: "border-l-green-500" },
+  pending: { label: "⏳ En attente de vérification", badge: "bg-yellow-100 text-yellow-700", border: "border-l-yellow-500" },
+  cancelled: { label: "❌ Annulé", badge: "bg-red-100 text-red-700", border: "border-l-red-500" },
+  expired: { label: "⌛ Expiré (paiement non confirmé)", badge: "bg-gray-100 text-gray-600", border: "border-l-gray-300" },
 };
 
 export default function MesReservationsPage() {
-  const [searchMode, setSearchMode] = useState<"phone" | "reference">("phone");
-  const [searchValue, setSearchValue] = useState("");
+  const { cityLabel, terminalLabel } = useNetwork();
+  const [reference, setReference] = useState("");
+  const [phone, setPhone] = useState("");
   const [bookings, setBookings] = useState<BookingWithPassengers[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState("");
   const [userBookings, setUserBookings] = useState<BookingWithPassengers[]>([]);
 
-  // Si l'utilisateur est connecté, charger ses réservations automatiquement
+  // Client connecté (email confirmé) : ses réservations, lues sous la protection de la base
   useEffect(() => {
     loadUserBookings();
   }, []);
@@ -80,74 +71,60 @@ export default function MesReservationsPage() {
     }
   }
 
+  const ref = reference.trim().toUpperCase();
+  const canSearch = REFERENCE.test(ref) && isValidPhone(phone);
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!searchValue.trim()) return;
+    if (!canSearch) return;
 
     setLoading(true);
     setSearched(true);
     setBookings([]);
+    setError("");
 
-    // Recherche via le serveur (par référence ou par téléphone) :
-    // les réservations des autres clients ne sont pas lisibles directement.
+    // Référence ET téléphone : un numéro seul ne donne jamais accès à une réservation
     try {
       const res = await fetch("/api/reservations/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: searchMode, value: searchValue.trim() }),
+        body: JSON.stringify({ reference: ref, phone }),
       });
       const json = await res.json();
       if (json.success) setBookings(json.bookings as BookingWithPassengers[]);
-    } catch (err) {
-      console.error("Lookup error:", err);
+      else setError(json.message || "Aucune réservation trouvée.");
+    } catch {
+      setError("Connexion impossible. Réessayez.");
     }
 
     setLoading(false);
   }
 
   function renderBookingCard(booking: BookingWithPassengers) {
-    const primaryPassenger = booking.passengers?.find(p => p.is_primary) || booking.passengers?.[0];
-    const seats = booking.passengers?.map(p => p.seat_number).filter(Boolean).join(", ") || "—";
-    const fromName = CITY_NAMES[booking.from_city] || booking.from_city;
-    const toName = CITY_NAMES[booking.to_city] || booking.to_city;
-    const terminalName = booking.from_terminal ? TERMINAL_NAMES[booking.from_terminal] || booking.from_terminal : null;
-
+    const primaryPassenger = booking.passengers?.find((p) => p.is_primary) || booking.passengers?.[0];
+    const seats = booking.passengers?.map((p) => p.seat_number).filter(Boolean).join(", ") || "—";
+    const fromName = booking.from_city_name || cityLabel(booking.from_city);
+    const toName = booking.to_city_name || cityLabel(booking.to_city);
+    const terminalName = booking.from_terminal_name || (booking.from_terminal ? terminalLabel(booking.from_terminal) : null);
+    const status = STATUS[booking.status] ?? { label: booking.status, badge: "bg-gray-100 text-gray-600", border: "border-l-gray-300" };
     const isPast = new Date(booking.date) < new Date(new Date().toISOString().split("T")[0]);
 
     return (
-      <div key={booking.id} className={`card border-l-4 ${
-        booking.status === "confirmed" ? "border-l-green-500" :
-        booking.status === "pending" ? "border-l-yellow-500" :
-        booking.status === "cancelled" ? "border-l-red-500" :
-        "border-l-gray-300"
-      } ${isPast ? "opacity-70" : ""}`}>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            {/* Référence + statut */}
-            <div className="flex items-center gap-3 mb-2">
+      <div key={booking.id} className={`card border-l-4 ${status.border} ${isPast ? "opacity-70" : ""}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
               <span className="font-mono font-bold text-night">{booking.reference}</span>
-              <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${
-                booking.status === "confirmed" ? "bg-green-100 text-green-700" :
-                booking.status === "pending" ? "bg-yellow-100 text-yellow-700" :
-                booking.status === "cancelled" ? "bg-red-100 text-red-700" :
-                "bg-gray-100 text-gray-600"
-              }`}>
-                {booking.status === "confirmed" ? "✅ Confirmé" :
-                 booking.status === "pending" ? "⏳ En attente" :
-                 booking.status === "cancelled" ? "❌ Annulé" :
-                 booking.status}
-              </span>
+              <span className={`px-2 py-0.5 text-xs rounded-full font-semibold ${status.badge}`}>{status.label}</span>
               {isPast && <span className="text-xs text-gray-400">Passé</span>}
             </div>
 
-            {/* Trajet */}
             <div className="flex items-center gap-2 mb-1">
               <span className="font-bold text-night text-lg">{fromName}</span>
               <span className="text-gray-400">→</span>
               <span className="font-bold text-night text-lg">{toName}</span>
             </div>
 
-            {/* Détails */}
             <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 mt-2">
               <span>📅 {new Date(booking.date + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })}</span>
               <span>🕐 {booking.departure_time}</span>
@@ -155,9 +132,18 @@ export default function MesReservationsPage() {
               <span className="font-semibold text-accent-700">{formatXAF(booking.total_price)}</span>
             </div>
 
-            {terminalName && (
-              <p className="text-xs text-gray-500 mt-1">📍 Départ depuis : {terminalName}</p>
+            {booking.trip_status === "cancelled" && (
+              <p className="mt-2 text-sm rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-2">
+                ❌ Départ annulé{booking.trip_status_reason ? ` — ${booking.trip_status_reason}` : ""}. Contactez votre agence Nzoko.
+              </p>
             )}
+            {booking.trip_status !== "cancelled" && (booking.delay_minutes ?? 0) > 0 && (
+              <p className="mt-2 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">
+                ⏱ Départ retardé de {booking.delay_minutes} min{booking.trip_status_reason ? ` (${booking.trip_status_reason})` : ""}.
+              </p>
+            )}
+
+            {terminalName && <p className="text-xs text-gray-500 mt-1">📍 Départ depuis l&apos;agence : {terminalName}</p>}
 
             {primaryPassenger && (
               <p className="text-xs text-gray-500 mt-1">
@@ -167,10 +153,9 @@ export default function MesReservationsPage() {
             )}
           </div>
 
-          {/* Action : voir billet (lien personnel avec clé d'accès quand on la connaît) */}
-          {booking.status !== "cancelled" && (booking.access_key || booking.status === "confirmed") && (
+          {(booking.status === "confirmed" || booking.status === "pending") && booking.access_key && (
             <Link
-              href={`/billet/${booking.reference}${booking.access_key ? `?k=${encodeURIComponent(booking.access_key)}` : ""}`}
+              href={`/billet/${booking.reference}?k=${encodeURIComponent(booking.access_key)}`}
               className="btn-accent text-xs px-3 py-2 flex-shrink-0"
             >
               🎫 Billet
@@ -185,89 +170,62 @@ export default function MesReservationsPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
       <h1 className="section-title mb-6">Mes réservations</h1>
 
-      {/* Recherche */}
       <div className="card mb-6">
-        <h2 className="font-bold text-night mb-4">🔍 Rechercher une réservation</h2>
+        <h2 className="font-bold text-night mb-1">🔍 Retrouver une réservation</h2>
+        <p className="text-xs text-gray-500 mb-4">
+          Pour protéger les voyageurs, il faut la <strong>référence</strong> (NZK-…) <strong>et</strong> le numéro de téléphone donné lors de la réservation.
+        </p>
 
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => { setSearchMode("phone"); setSearchValue(""); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              searchMode === "phone" ? "bg-night text-white" : "bg-gray-100 text-gray-600"
-            }`}
-          >
-            Par téléphone
-          </button>
-          <button
-            onClick={() => { setSearchMode("reference"); setSearchValue(""); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              searchMode === "reference" ? "bg-night text-white" : "bg-gray-100 text-gray-600"
-            }`}
-          >
-            Par référence
-          </button>
-        </div>
-
-        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 sm:items-start">
-          {searchMode === "phone" ? (
-            <PhoneInput className="flex-1" required value={searchValue} onChange={(v) => setSearchValue(v)} />
-          ) : (
+        <form onSubmit={handleSearch} className="space-y-3">
+          <div>
+            <label htmlFor="ref" className="block text-sm font-medium text-gray-700 mb-1">Référence de réservation</label>
             <input
+              id="ref"
               type="text"
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              className="input-field flex-1 font-mono uppercase tracking-wider"
-              placeholder="NZK-260624-XXXX"
+              value={reference}
+              onChange={(e) => setReference(e.target.value.toUpperCase())}
+              className="input-field font-mono uppercase tracking-wider"
+              placeholder="NZK-261008-XXXX"
+              autoComplete="off"
               required
             />
-          )}
-          <button type="submit" disabled={loading || (searchMode === "phone" && !isValidPhone(searchValue))} className="btn-accent disabled:opacity-50 py-3">
-            {loading ? "..." : "Rechercher"}
+          </div>
+          <PhoneInput label="Téléphone utilisé pour la réservation" required value={phone} onChange={(v) => setPhone(v)} />
+          <button type="submit" disabled={loading || !canSearch} className="btn-accent w-full sm:w-auto disabled:opacity-50 py-3">
+            {loading ? "Recherche…" : "Rechercher"}
           </button>
         </form>
       </div>
 
-      {/* Résultats de recherche */}
-      {searched && (
+      {searched && !loading && (
         <div className="mb-8">
-          <h3 className="font-bold text-night mb-3">
-            Résultats ({bookings.length})
-          </h3>
           {bookings.length === 0 ? (
-            <div className="card text-center py-6 text-gray-400">
-              <p>Aucune réservation trouvée pour &quot;{searchValue}&quot;.</p>
-              <p className="text-xs mt-1">Vérifiez le numéro ou la référence.</p>
+            <div className="card text-center py-6 text-gray-500">
+              <p>{error || "Aucune réservation trouvée."}</p>
+              <p className="text-xs mt-1 text-gray-400">Vérifiez la référence et le numéro de téléphone.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {bookings.map(renderBookingCard)}
-            </div>
+            <div className="space-y-4">{bookings.map(renderBookingCard)}</div>
           )}
         </div>
       )}
 
-      {/* Réservations de l'utilisateur connecté */}
       {userBookings.length > 0 && (
         <div>
-          <h3 className="font-bold text-night mb-3">
-            📋 Mes dernières réservations
-          </h3>
-          <div className="space-y-4">
-            {userBookings.map(renderBookingCard)}
-          </div>
+          <h3 className="font-bold text-night mb-3">📋 Mes dernières réservations</h3>
+          <div className="space-y-4">{userBookings.map(renderBookingCard)}</div>
         </div>
       )}
 
-      {/* Message si pas connecté et pas de recherche */}
       {!searched && userBookings.length === 0 && (
         <div className="text-center text-gray-500 mt-8">
           <div className="text-4xl mb-3">🎫</div>
-          <p>Recherchez vos réservations par téléphone ou référence.</p>
+          <p>Votre référence figure sur la page de confirmation de votre réservation.</p>
           <p className="text-sm mt-2">
             <Link href="/auth/login" className="text-night font-semibold hover:text-accent-700">
               Connectez-vous
             </Link>
-            {" "}pour voir automatiquement toutes vos réservations.
+            {" "}pour voir automatiquement les réservations faites avec votre email.
           </p>
           <Link href="/" className="text-night font-semibold hover:text-accent-700 mt-4 inline-block">
             ← Réserver un trajet

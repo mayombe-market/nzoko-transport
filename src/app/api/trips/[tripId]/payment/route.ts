@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/api-auth";
+import { getServiceClient, optionalAgent } from "@/lib/api-auth";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -19,6 +19,8 @@ export async function GET(req: NextRequest, { params }: { params: { tripId: stri
     p_from: from,
     p_to: to,
     p_from_terminal: fromTerminal && /^[a-z-]+$/.test(fromTerminal) ? fromTerminal : null,
+    // Les comptes de démonstration ne sont jamais montrés au public
+    p_include_demo: (await optionalAgent(req))?.role === "admin",
   });
   if (error) {
     console.error("nzk_trip_payment_info:", error);

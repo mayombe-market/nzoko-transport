@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/api-auth";
-import { cityName } from "@/lib/cities";
 
 // Départs réels pour une recherche (lignes actives configurées dans l'admin)
 export async function GET(req: NextRequest) {
@@ -38,7 +37,14 @@ export async function GET(req: NextRequest) {
     amenities: d.amenities ?? [],
     seatsTotal: d.seats_total,
     seatsLeft: Math.max(0, d.seats_total - d.seats_taken),
+    status: d.trip_status ?? "scheduled",
+    delayMinutes: d.delay_minutes ?? 0,
+    statusReason: d.status_reason ?? null,
   }));
+
+  // Noms des villes lus en base (aucune liste écrite en dur)
+  const { data: cities } = await supabase.from("cities").select("id, name").in("id", [from, to]);
+  const cityName = (id: string) => cities?.find((c) => c.id === id)?.name ?? id;
 
   return NextResponse.json({ success: true, from, to, fromName: cityName(from), toName: cityName(to), date, departures });
 }

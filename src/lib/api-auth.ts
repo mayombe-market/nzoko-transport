@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createHash } from "crypto";
 
 // ============================================================
 // Vérification d'identité pour les routes API (côté serveur)
@@ -79,4 +80,23 @@ export function escapeHtml(value: unknown): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/**
+ * Personnel connecté si un jeton valide est joint, sinon null (jamais d'erreur).
+ * Sert aux routes publiques qui offrent un comportement différent au personnel.
+ */
+export async function optionalAgent(req: NextRequest): Promise<AgentContext | null> {
+  if (!(req.headers.get("authorization") || "").startsWith("Bearer ")) return null;
+  const ctx = await requireAgent(req);
+  return isDenied(ctx) ? null : ctx;
+}
+
+/**
+ * Empreinte anonyme de l'appareil (adresse IP hachée) pour limiter les abus
+ * (blocage massif de sièges, réservations en attente en série).
+ */
+export function clientHash(req: NextRequest): string {
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("x-real-ip") || "inconnu";
+  return createHash("sha256").update(`nzk:${ip}`).digest("hex").slice(0, 32);
 }

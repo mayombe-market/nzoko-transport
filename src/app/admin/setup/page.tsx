@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PhoneInput } from "@/components/PhoneInput";
@@ -19,6 +19,15 @@ export default function AdminSetupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  // La page n'est utilisable que tant qu'aucun administrateur n'existe (vérifié aussi par le serveur)
+  const [setupOpen, setSetupOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/create-agent")
+      .then((r) => r.json())
+      .then((j) => setSetupOpen(!!j.setupOpen))
+      .catch(() => setSetupOpen(false));
+  }, []);
 
   async function handleSetup(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +75,19 @@ export default function AdminSetupPage() {
     }
 
     setLoading(false);
+  }
+
+  if (setupOpen === null) {
+    return <div className="max-w-md mx-auto px-4 py-16 text-center text-gray-400">Chargement…</div>;
+  }
+  if (!setupOpen && !success) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <h1 className="text-xl font-bold text-night mb-2">Page non disponible</h1>
+        <p className="text-sm text-gray-600 mb-4">La configuration initiale de Nzoko Transport est déjà effectuée.</p>
+        <Link href="/" className="btn-primary">Retour à l&apos;accueil</Link>
+      </div>
+    );
   }
 
   if (success) {

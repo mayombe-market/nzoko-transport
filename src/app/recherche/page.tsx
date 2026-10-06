@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { formatXAF, formatDuration, AMENITY_ICONS } from "@/lib/utils";
-import { cityName, TERMINAL_NAMES } from "@/lib/cities";
+import { useNetwork } from "@/lib/network";
 
 interface Departure {
   tripId: string;
@@ -22,6 +22,9 @@ interface Departure {
   amenities: string[];
   seatsTotal: number;
   seatsLeft: number;
+  status?: string;
+  delayMinutes?: number;
+  statusReason?: string | null;
 }
 
 function ResultsContent() {
@@ -33,6 +36,7 @@ function ResultsContent() {
   const fromTerminal = params.get("fromTerminal") || "";
   const toTerminal = params.get("toTerminal") || "";
 
+  const { cityLabel: cityName, terminalLabel } = useNetwork();
   const [departures, setDepartures] = useState<Departure[] | null>(null);
   const [error, setError] = useState("");
 
@@ -70,9 +74,9 @@ function ResultsContent() {
           {cityName(from)} → {cityName(to)}
         </h1>
         <p className="text-gray-600 mt-1">
-          {fromTerminal && <span className="text-night font-medium">Départ : {TERMINAL_NAMES[fromTerminal] || fromTerminal}</span>}
+          {fromTerminal && <span className="text-night font-medium">Départ : {terminalLabel(fromTerminal)}</span>}
           {fromTerminal && toTerminal && " • "}
-          {toTerminal && <span className="text-night font-medium">Arrivée : {TERMINAL_NAMES[toTerminal] || toTerminal}</span>}
+          {toTerminal && <span className="text-night font-medium">Arrivée : {terminalLabel(toTerminal)}</span>}
         </p>
         {date && (
           <p className="text-gray-600 mt-1">
@@ -106,6 +110,8 @@ function ResultsContent() {
 
           {departures.map((d) => {
             const full = d.seatsLeft < passengers;
+            const cancelled = d.status === "cancelled";
+            const delay = d.delayMinutes ?? 0;
             const dayShift = d.arriveDate > d.departDate;
             return (
               <div key={d.tripId} className="card border-l-4 border-l-accent-500 hover:shadow-lg transition-shadow">
@@ -156,7 +162,9 @@ function ResultsContent() {
                         <div className="text-xs text-gray-500">Total : {formatXAF(d.price * passengers)}</div>
                       )}
                     </div>
-                    {full ? (
+                    {cancelled ? (
+                      <span className="text-sm font-semibold text-red-600 px-5 py-2">Départ annulé</span>
+                    ) : full ? (
                       <span className="text-sm font-semibold text-gray-400 px-5 py-2">Complet</span>
                     ) : (
                       <Link href={seatLink(d)} className="btn-accent text-sm px-5 py-2 whitespace-nowrap">
@@ -165,6 +173,17 @@ function ResultsContent() {
                     )}
                   </div>
                 </div>
+                {cancelled && (
+                  <p className="mt-3 text-sm rounded-lg bg-red-50 border border-red-200 text-red-700 px-3 py-2">
+                    ❌ Départ annulé{d.statusReason ? ` — ${d.statusReason}` : ""}. Contactez votre agence Nzoko.
+                  </p>
+                )}
+                {!cancelled && delay > 0 && (
+                  <p className="mt-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">
+                    ⏱ Départ retardé de {delay} min — nouvelle heure prévue {addMin(d.departTime, delay)}
+                    {d.statusReason ? ` (${d.statusReason})` : ""}
+                  </p>
+                )}
                 <p className="mt-3 text-xs text-gray-400">{d.corridorLabel}</p>
               </div>
             );
@@ -173,6 +192,12 @@ function ResultsContent() {
       )}
     </div>
   );
+}
+
+function addMin(time: string, minutes: number) {
+  const [h, m] = time.split(":").map(Number);
+  const t = (h * 60 + m + minutes) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
 export default function RecherchePage() {

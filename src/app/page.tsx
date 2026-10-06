@@ -27,6 +27,15 @@ const DESTINATIONS = [
   { name: "Pointe-Noire ↔ Sibiti", route: "Niari", km: "270 km", duration: "4h30" },
 ];
 
+const PLATEFORME = [
+  { icon: "🎫", title: "Réservation en ligne et au guichet", text: "Les voyageurs réservent en ligne ; les agents vendent au guichet en espèces. Même plan de sièges, aucune double vente." },
+  { icon: "🏢", title: "Plusieurs agences", text: "Chaque agence a son équipe, ses numéros Mobile Money et ses revenus, avec une vue centrale pour la direction." },
+  { icon: "📲", title: "Paiement MTN / Airtel vérifié", text: "Le client paie l'agence de départ ; l'agence confirme la transaction avant d'émettre le billet." },
+  { icon: "📷", title: "Billets QR contrôlés", text: "Billet sur téléphone ou PDF, scanné à l'embarquement : un billet ne sert qu'une fois." },
+  { icon: "📦", title: "Colis suivis", text: "Dépôt, chargement, arrivée et retrait avec code secret ; suivi en ligne pour l'expéditeur et le destinataire." },
+  { icon: "🚌", title: "Départs maîtrisés", text: "Changement de bus, retard ou annulation d'un départ précis, visibles par les voyageurs concernés." },
+];
+
 export default function HomePage() {
   return (
     <div>
@@ -91,6 +100,30 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Plateforme pour les compagnies */}
+      <section className="bg-creme py-16 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="section-title text-center mb-3">Une plateforme complète pour votre compagnie</h2>
+          <p className="text-center text-gray-600 max-w-2xl mx-auto mb-10">
+            Réservations, agences, paiements, billets et colis réunis dans un seul système,
+            avec un espace professionnel réservé au personnel.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PLATEFORME.map((m) => (
+              <div key={m.title} className="bg-white rounded-xl border border-gray-200 p-5">
+                <span className="text-2xl" aria-hidden="true">{m.icon}</span>
+                <h3 className="font-bold text-night mt-2 mb-1">{m.title}</h3>
+                <p className="text-sm text-gray-600">{m.text}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm text-gray-500 mt-8">
+            L&apos;espace professionnel (agences, guichet, scanner, finances, colis) est accessible au personnel sur identifiants.
+            Démonstration sur rendez-vous.
+          </p>
         </div>
       </section>
     </div>

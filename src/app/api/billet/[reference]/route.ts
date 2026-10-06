@@ -25,6 +25,14 @@ export async function GET(req: NextRequest, { params }: { params: { reference: s
     return NextResponse.json({ success: false, message: "Billet introuvable." }, { status: 404 });
   }
 
+  // Sans la clé d'accès : rien n'est révélé (ni trajet, ni passagers, ni QR)
+  if (!view.authorized) {
+    return NextResponse.json(
+      { success: false, message: "Lien de billet incomplet. Retrouvez votre billet dans « Mes réservations » avec votre référence et votre numéro de téléphone." },
+      { status: 403 }
+    );
+  }
+
   const { data: phoneRow } = await supabase.from("bookings").select("customer_phone").eq("reference", reference).maybeSingle();
 
   return NextResponse.json({

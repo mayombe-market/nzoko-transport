@@ -46,7 +46,7 @@ export async function colisApi<T = any>(op: string, params: Record<string, unkno
 
 export interface AgentInfo {
   full_name: string;
-  role: "admin" | "agent";
+  role: "admin" | "finance" | "manager" | "agent";
   terminal_id: string | null;
   terminals: { name: string; city_id: string } | null;
   // liste des agences actives

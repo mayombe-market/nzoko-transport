@@ -6,6 +6,14 @@ import { normalizePhone } from "@/lib/phone";
 // - Cas normal : réservé à un administrateur connecté.
 // - Cas initial (/admin/setup) : autorisé uniquement si AUCUN admin n'existe
 //   ET si le code ADMIN_SETUP_TOKEN (variable Vercel) est fourni.
+// La configuration initiale est-elle encore possible ? (aucun administrateur existant)
+export async function GET() {
+  const supabase = getServiceClient();
+  if (!supabase) return NextResponse.json({ setupOpen: false });
+  const { count, error } = await supabase.from("agent_profiles").select("id", { count: "exact", head: true }).eq("role", "admin");
+  return NextResponse.json({ setupOpen: !error && (count ?? 0) === 0 && !!process.env.ADMIN_SETUP_TOKEN });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password, fullName, phone, role, terminalId, setupToken } = await req.json();

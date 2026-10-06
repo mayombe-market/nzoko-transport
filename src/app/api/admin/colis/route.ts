@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
       return r.failed ?? NextResponse.json({ success: true, data: r.data });
     }
     case "revenue": {
-      if (ctx.role !== "admin") return NextResponse.json({ success: false, message: "Réservé aux administrateurs." }, { status: 403 });
+      if (!["admin", "finance"].includes(ctx.role)) return NextResponse.json({ success: false, message: "Réservé à Nzoko central." }, { status: 403 });
       const from = DATE.test(s(body.from)) ? s(body.from) : today();
       const to = DATE.test(s(body.to)) ? s(body.to) : today();
       const r = await rpc("nzk_revenue_summary", { p_from: from, p_to: to });

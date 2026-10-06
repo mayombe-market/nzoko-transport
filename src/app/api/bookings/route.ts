@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient } from "@/lib/api-auth";
+import { getServiceClient, optionalAgent, clientHash } from "@/lib/api-auth";
 import { bookingErrorMessage } from "@/lib/booking-errors";
 import { normalizePhone } from "@/lib/phone";
 
@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
     seat: String(p?.seat ?? "").slice(0, 4),
   }));
 
+  // Comptes Mobile Money de démonstration : uniquement pour un administrateur connecté
+  const staff = await optionalAgent(req);
+  const allowDemo = staff?.role === "admin";
+
   const { data, error } = await supabase.rpc("nzk_create_booking", {
     p_trip: body.tripId,
     p_from: String(body.from ?? ""),
@@ -46,6 +50,8 @@ export async function POST(req: NextRequest) {
     p_method: String(body.method ?? ""),
     p_transaction_code: String(body.transactionCode ?? "").slice(0, 60),
     p_phone_sender: phoneSender,
+    p_allow_demo: allowDemo,
+    p_client: staff ? null : clientHash(req),
   });
 
   if (error) {
@@ -64,5 +70,7 @@ export async function POST(req: NextRequest) {
     unitPrice: data.unit_price,
     premiumSeats: data.premium_seats,
     agencyName: data.agency_name,
+    isDemo: !!data.is_demo,
+    expiresMinutes: data.expires_minutes ?? 30,
   });
 }
