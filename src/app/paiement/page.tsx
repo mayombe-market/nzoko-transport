@@ -185,6 +185,7 @@ export default function PaiementPage() {
             (agence {payInfo.agency_name}, {payInfo.agency_city}). N&apos;envoyez aucun argent.
           </p>
           <p className="text-sm mt-2">En attendant, le billet peut être acheté au guichet de l&apos;agence.</p>
+          <Link href="/" className="btn-primary inline-block mt-3 text-sm">Retour à l&apos;accueil</Link>
         </div>
       )}
       {payInfo?.accounts.some((a) => a.is_demo) && (
@@ -207,6 +208,9 @@ export default function PaiementPage() {
         </div>
       )}
 
+      {/* Étapes et formulaire : seulement quand le paiement en ligne est activé pour cette agence */}
+      {(!payInfo || payInfo.status === "ok") && (
+      <>
       {/* Étapes */}
       <div className="card mb-6 bg-accent-50 border-accent-200">
         <h2 className="font-bold text-night mb-4">📲 Comment payer ?</h2>
@@ -323,6 +327,8 @@ export default function PaiementPage() {
           </button>
         </div>
       </form>
+      </>
+      )}
     </div>
   );
 }
